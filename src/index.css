@@ -1,0 +1,251 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Inter:wght@300;400;500;600;700&display=swap');
+
+
+
+:root {
+  /* Default: Grimoire (Dark) */
+  --color-medieval-charcoal: #0f0f12;
+  --color-medieval-stone: #1e1e24;
+  --color-medieval-gold: #c5a880;
+  --color-medieval-brightGold: #e5cda8;
+  --color-medieval-wine: #581c20;
+  --color-medieval-parchment: #e8e4dc;
+  --color-medieval-silver: #a3a099;
+  --color-medieval-accent: #c5a880;
+}
+
+[data-theme='parchment'] {
+  --color-medieval-charcoal: #f4f1ea;
+  --color-medieval-stone: #e8e4dc;
+  --color-medieval-gold: #8b7355;
+  --color-medieval-brightGold: #5d4037;
+  --color-medieval-wine: #7b1f26;
+  --color-medieval-parchment: #2c2c2c;
+  --color-medieval-silver: #5d5d5d;
+  --color-medieval-accent: #8b7355;
+}
+
+[data-theme='emerald'] {
+  --color-medieval-charcoal: #06140c;
+  --color-medieval-stone: #0d2418;
+  --color-medieval-gold: #4ade80;
+  --color-medieval-brightGold: #bbf7d0;
+  --color-medieval-wine: #ef4444;
+  --color-medieval-parchment: #ecfdf5;
+  --color-medieval-silver: #94a3b8;
+  --color-medieval-accent: #10b981;
+}
+
+@theme {
+  --color-medieval-charcoal: var(--color-medieval-charcoal);
+  --color-medieval-stone: var(--color-medieval-stone);
+  --color-medieval-gold: var(--color-medieval-gold);
+  --color-medieval-brightGold: var(--color-medieval-brightGold);
+  --color-medieval-wine: var(--color-medieval-wine);
+  --color-medieval-parchment: var(--color-medieval-parchment);
+  --color-medieval-silver: var(--color-medieval-silver);
+  --color-medieval-accent: var(--color-medieval-accent);
+
+  --font-medieval: "Cinzel", Georgia, serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+
+  --shadow-gold: 0 0 15px rgba(197, 168, 128, 0.15);
+  --shadow-goldFocus: 0 0 25px rgba(197, 168, 128, 0.35);
+
+  --animate-fade-in: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-slide-up: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(15px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+@layer base {
+  body {
+    background-color: var(--color-medieval-charcoal);
+    color: var(--color-medieval-parchment);
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-image:
+      radial-gradient(circle at 50% 50%, var(--color-medieval-stone) 0%, var(--color-medieval-charcoal) 100%),
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence baseFrequency='0.65' numOctaves='3' stitchTiles='stitch' type='fractalNoise'/%3E%3C/filter%3E%3Crect filter='url(%23noise)' height='100%25' opacity='0.025' width='100%25'/%3E%3C/svg%3E");
+    background-attachment: fixed;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-medieval);
+    letter-spacing: 0.025em;
+    color: var(--color-medieval-gold);
+  }
+
+  *:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-medieval-gold), transparent 40%);
+  }
+}
+
+@layer components {
+  .grimoire-card {
+    background-color: color-mix(in srgb, var(--color-medieval-stone), transparent 20%);
+    border: 1px solid color-mix(in srgb, var(--color-medieval-gold), transparent 80%);
+    border-radius: 0.5rem;
+    box-shadow: var(--shadow-gold);
+    backdrop-filter: blur(4px);
+    transition: all 0.3s;
+  }
+
+  .grimoire-card-hover:hover {
+    border-color: color-mix(in srgb, var(--color-medieval-gold), transparent 55%);
+    box-shadow: var(--shadow-goldFocus);
+  }
+
+  .btn-gold {
+    background: linear-gradient(to bottom, var(--color-medieval-gold), color-mix(in srgb, var(--color-medieval-gold), black 20%));
+    color: var(--color-medieval-charcoal);
+    font-family: var(--font-medieval);
+    font-weight: 700;
+    padding: 0.4rem 0.75rem;
+    border-radius: 0.25rem;
+    border: 1px solid color-mix(in srgb, var(--color-medieval-brightGold), transparent 70%);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s;
+    cursor: pointer;
+    font-size: 0.8125rem;
+  }
+
+  .btn-gold:hover {
+    background: linear-gradient(to bottom, var(--color-medieval-brightGold), var(--color-medieval-gold));
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    transform: scale(1.02);
+  }
+
+  .btn-wine {
+    background: linear-gradient(to bottom, var(--color-medieval-wine), color-mix(in srgb, var(--color-medieval-wine), black 20%));
+    color: var(--color-medieval-parchment);
+    font-family: var(--font-medieval);
+    font-weight: 600;
+    padding: 0.4rem 0.75rem;
+    border-radius: 0.25rem;
+    border: 1px solid color-mix(in srgb, var(--color-medieval-wine), transparent 60%);
+    transition: all 0.3s;
+    cursor: pointer;
+    font-size: 0.8125rem;
+  }
+
+  .btn-wine:hover {
+    background: linear-gradient(to bottom, #451216, var(--color-medieval-wine));
+    transform: scale(1.02);
+  }
+
+  .btn-stone {
+    background-color: color-mix(in srgb, var(--color-medieval-stone), transparent 10%);
+    border: 1px solid color-mix(in srgb, var(--color-medieval-gold), transparent 70%);
+    color: var(--color-medieval-gold);
+    font-family: var(--font-medieval);
+    font-weight: 500;
+    padding: 0.4rem 0.75rem;
+    border-radius: 0.25rem;
+    transition: all 0.3s;
+    cursor: pointer;
+    font-size: 0.8125rem;
+  }
+
+  .btn-stone:hover {
+    background-color: var(--color-medieval-gold);
+    color: var(--color-medieval-charcoal);
+    border-color: var(--color-medieval-brightGold);
+    transform: scale(1.02);
+  }
+
+  .medieval-input {
+    background-color: color-mix(in srgb, var(--color-medieval-charcoal), transparent 20%);
+    border: 1px solid color-mix(in srgb, var(--color-medieval-gold), transparent 65%);
+    border-radius: 0.25rem;
+    padding: 0.5rem 0.75rem;
+    color: var(--color-medieval-parchment);
+    transition: all 0.3s;
+    outline: none;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    min-width: 0;
+  }
+
+  .medieval-input::placeholder {
+    color: color-mix(in srgb, var(--color-medieval-silver), transparent 50%);
+  }
+
+  .medieval-input:focus {
+    border-color: var(--color-medieval-gold);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-medieval-gold), transparent 50%);
+  }
+
+  /* Custom Scrollbar for Medieval Parchment/Grimoire feel */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #0f0f12;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #1e1e24;
+    border: 1px solid #c5a880;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #c5a880;
+  }
+}
+
+/* Custom transitions and utility animations */
+.glow-gold-text {
+  text-shadow: 0 0 10px rgba(197, 168, 128, 0.4);
+}
+
+.glow-wine-text {
+  text-shadow: 0 0 10px rgba(88, 28, 32, 0.6);
+}
+
+.parchment-border {
+  border-image: linear-gradient(to right, #c5a880 0%, #1e1e24 50%, #c5a880 100%) 1;
+}
+
+.animate-fade-in {
+  animation: var(--animate-fade-in);
+}
+
+.animate-slide-up {
+  animation: var(--animate-slide-up);
+}
