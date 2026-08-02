@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { useRouter } from '../contexts/RouterContext';
 import { useMediaUrl } from '../hooks/useMediaUrl';
+import { CharacterModal } from '../components/character/CharacterModal';
 import {
   Shield,
   Heart,
@@ -10,7 +11,8 @@ import {
   ArrowRight,
   TrendingUp,
   FileText,
-  Star
+  Star,
+  Edit3
 } from 'lucide-react';
 
 interface CharacterProfileViewProps {
@@ -19,6 +21,7 @@ interface CharacterProfileViewProps {
 
 export const CharacterProfileView: React.FC<CharacterProfileViewProps> = ({ id }) => {
   const { navigate } = useRouter();
+  const [editModalOpen, setEditModalOpen] = useState(false);
 
   const character = useLiveQuery(() => db.characters.get(id), [id]);
   const avatarUrl = useMediaUrl(character?.imageId);
@@ -72,6 +75,17 @@ export const CharacterProfileView: React.FC<CharacterProfileViewProps> = ({ id }
 
       {/* Visual Portrait Cover Card */}
       <div className="grimoire-card overflow-hidden border-medieval-gold/30 shadow-gold relative">
+        {/* Edit button */}
+        <div className="absolute top-3 right-3 z-10">
+          <button
+            onClick={() => setEditModalOpen(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded bg-medieval-charcoal/80 hover:bg-medieval-stone border border-medieval-gold/30 text-medieval-gold hover:text-medieval-brightGold text-[11px] font-medieval uppercase tracking-wider backdrop-blur-sm transition-all shadow-md active:scale-95 cursor-pointer"
+          >
+            <Edit3 className="w-3.5 h-3.5" />
+            <span>Editar</span>
+          </button>
+        </div>
+
         <div className="flex flex-col md:flex-row">
 
           {/* Portrait Image (Left side on desktop, top on mobile) */}
@@ -226,6 +240,13 @@ export const CharacterProfileView: React.FC<CharacterProfileViewProps> = ({ id }
         </div>
       </div>
 
+      {editModalOpen && (
+        <CharacterModal
+          isOpen={editModalOpen}
+          onClose={() => setEditModalOpen(false)}
+          characterToEdit={character}
+        />
+      )}
     </div>
   );
 };
@@ -278,7 +299,7 @@ const TimelineStep: React.FC<TimelineStepProps> = ({ memory, levelReached }) => 
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <h4 className="font-medieval font-bold text-medieval-brightGold group-hover:text-medieval-gold truncate">
+            <h4 className="font-medieval font-bold text-medieval-brightGold group-hover:text-medieval-gold break-words whitespace-normal leading-tight">
               {memory.title}
             </h4>
             <p className="text-[10px] text-medieval-silver/80 line-clamp-2 mt-0.5">

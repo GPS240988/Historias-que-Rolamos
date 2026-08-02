@@ -52,12 +52,12 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // Find memories to delete relations
       const memories = await db.memories.where('campaignId').equals(id).toArray();
       const memoryIds = memories.map(m => m.id);
-      
+
       // Delete relationships
       if (memoryIds.length > 0) {
         await db.memoryCharacters.where('memoryId').anyOf(memoryIds).delete();
       }
-      
+
       // Delete characters, memories, tokens, media, campaign
       await db.characters.where('campaignId').equals(id).delete();
       await db.memories.where('campaignId').equals(id).delete();
@@ -83,7 +83,7 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   } else if (activeCampaignId) {
     campaign = campaigns.find(c => c.id === activeCampaignId) || null;
   }
-  
+
   if (!campaign && campaigns.length > 0 && activeCampaignId !== 'new') {
     campaign = campaigns[0];
     localStorage.setItem('activeCampaignId', campaign.id);
@@ -100,7 +100,7 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     let coverImageId: string | undefined;
 
     if (coverFile) {
-      coverImageId = await MediaService.saveMedia(coverFile, campaignId);
+      coverImageId = await MediaService.saveMedia(coverFile, campaignId, true);
     }
 
     const newCampaign: Campaign = {
@@ -129,7 +129,7 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (campaign.coverImageId) {
         await MediaService.deleteMedia(campaign.coverImageId);
       }
-      coverImageId = await MediaService.saveMedia(coverFile, campaign.id);
+      coverImageId = await MediaService.saveMedia(coverFile, campaign.id, true);
     }
 
     const updatedCampaign: Campaign = {

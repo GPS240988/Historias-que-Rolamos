@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useCampaign } from '../contexts/CampaignContext';
+import { useRouter } from '../contexts/RouterContext';
 import { Shield, BookOpen, PenTool, Image as ImageIcon } from 'lucide-react';
 
 export const CampaignSetup: React.FC = () => {
   const { createCampaign, campaigns, switchCampaign } = useCampaign();
+  const { navigate } = useRouter();
   const [name, setName] = useState('');
   const [system, setSystem] = useState('Tormenta20');
   const [description, setDescription] = useState('');
@@ -37,6 +39,7 @@ export const CampaignSetup: React.FC = () => {
     setError(null);
     try {
       await createCampaign(name, system, description, coverFile);
+      navigate({ type: 'dashboard' });
     } catch (err: any) {
       setError(err.message || 'Erro ao criar a campanha. Tente novamente.');
     } finally {

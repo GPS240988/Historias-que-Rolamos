@@ -99,8 +99,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showSearch = tru
   return (
     <div className="w-screen h-screen bg-[#0a0a0c] text-medieval-parchment flex justify-center overflow-hidden selection:bg-medieval-gold/30 selection:text-medieval-brightGold">
 
-      {/* Centered Mobile-First Container (Mockup-style frame for PC) */}
-      <div className="w-full max-w-2xl h-full bg-medieval-charcoal flex flex-col relative md:border-x md:border-medieval-gold/15 md:shadow-[0_0_60px_rgba(0,0,0,0.85)]">
+      {/* Centered Container (Mockup-style frame on Mobile, responsive and wider on Desktop) */}
+      <div className="w-full max-w-2xl md:max-w-4xl lg:max-w-5xl xl:max-w-6xl h-full bg-medieval-charcoal flex flex-col relative md:border-x md:border-medieval-gold/15 md:shadow-[0_0_60px_rgba(0,0,0,0.85)]">
 
         {/* Sticky Header - Top Bar */}
         {isSearching ? (

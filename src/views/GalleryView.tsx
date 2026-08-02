@@ -67,20 +67,21 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ tab = 'images' }) => {
 
   // Queries
   // Load all media and filter by isGallery flag client-side
-  const allMedia = useLiveQuery(() => 
+  const allMedia = useLiveQuery(() =>
     campaign ? db.media.where('campaignId').equals(campaign.id).toArray() : []
-  , [campaign?.id]) || [];
+    , [campaign?.id]) || [];
+
+  // Query all tokens (these are stored separately in tokens table)
+  const allTokens = useLiveQuery(() =>
+    campaign ? db.tokens.where('campaignId').equals(campaign.id).toArray() : []
+    , [campaign?.id]) || [];
 
   // Gallery images: only files explicitly marked as isGallery=true
   const galleryImages = allMedia.filter(m => m.isGallery === true);
 
-  // Files/Attachments: files marked as isGallery=false (PDFs, sheets, etc)
-  const attachedFiles = allMedia.filter(m => m.isGallery === false);
-
-  // Query all tokens (these are stored separately in tokens table)
-  const allTokens = useLiveQuery(() => 
-    campaign ? db.tokens.where('campaignId').equals(campaign.id).toArray() : []
-  , [campaign?.id]) || [];
+  // Files/Attachments: files marked as isGallery=false, excluding those used by tokens
+  const tokenMediaIds = new Set(allTokens.map(t => t.mediaId));
+  const attachedFiles = allMedia.filter(m => m.isGallery === false && !tokenMediaIds.has(m.id));
 
   const handleTabChange = (targetTab: 'images' | 'files' | 'tokens') => {
     navigate({ type: 'gallery', tab: targetTab });

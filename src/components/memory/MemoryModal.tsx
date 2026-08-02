@@ -48,7 +48,7 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, memor
 
   const [coverFile, setCoverFile] = useState<File | undefined>(undefined);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
-  
+
   // Additional photos states
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
@@ -91,7 +91,14 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, memor
           }
         });
         setSelectedChars(initialSelected);
-        setCoverPreview(null);
+
+        // Load existing cover image if it exists
+        if (memoryToEdit.imageId) {
+          const existingImageUrl = await MediaService.getMediaUrl(memoryToEdit.imageId);
+          setCoverPreview(existingImageUrl);
+        } else {
+          setCoverPreview(null);
+        }
         setCoverFile(undefined);
 
         // Load existing photos linked to this memory
@@ -246,8 +253,8 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, memor
 
       // Save additional photos if selected
       for (const file of photoFiles) {
-        // Save to IndexedDB (marked as isGallery: false for memory attachments)
-        const mediaId = await MediaService.saveMedia(file, campaign!.id, false);
+        // Save to IndexedDB (marked as isGallery: true for campaign images)
+        const mediaId = await MediaService.saveMedia(file, campaign!.id, true);
         await db.media.update(mediaId, { relatedMemoryId: memoryId });
       }
 

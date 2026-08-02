@@ -176,7 +176,7 @@ export const MediaService = {
    * Returns the generated Media entry's ID.
    * @param isGallery - If true, marks as campaign gallery art. If false, marks as attachment/utility file.
    */
-  async saveMedia(file: File, campaignId: string, isGallery: boolean = false): Promise<string> {
+  async saveMedia(file: File, campaignId: string, isGallery: boolean = true): Promise<string> {
     // 1. Validate size and type
     const validation = validateFile(file);
     if (!validation.valid) {

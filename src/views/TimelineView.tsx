@@ -390,7 +390,7 @@ const MemoryCard: React.FC<MemoryCardProps> = ({ memory, onEdit, onDelete }) => 
         )}
 
         <div className="flex-1 space-y-2 min-w-0">
-          <h3 className="text-lg font-medieval font-bold text-medieval-brightGold group-hover:text-medieval-gold transition-colors duration-200 truncate leading-tight">
+          <h3 className="text-lg font-medieval font-bold text-medieval-brightGold group-hover:text-medieval-gold transition-colors duration-200 break-words whitespace-normal leading-tight">
             {memory.title}
           </h3>
           <p className="text-xs font-serif text-medieval-silver line-clamp-3 leading-relaxed text-justify">

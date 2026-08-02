@@ -12,9 +12,7 @@
     ],
     "allowArbitraryExtensions": true,
     "skipLibCheck": true,
-    "ignoreDeprecations": "6.0",
     /* Path resolution */
-    "baseUrl": ".",
     "paths": {
       "@/*": [
         "./src/*"

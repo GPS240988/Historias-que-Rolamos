@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import type { Media } from '../../types';
 import { useCampaign } from '../../contexts/CampaignContext';
 import { MediaService } from '../../services/media';
 import { db } from '../../db';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { X, Calendar, Tag, Users, Film, Edit3, Image as ImageIcon } from 'lucide-react';
+import { X, Calendar, Tag, Users, Film, Edit3, Image as ImageIcon, Shield } from 'lucide-react';
 
 interface GalleryImageModalProps {
   isOpen: boolean;
@@ -32,29 +32,48 @@ export const GalleryImageModal: React.FC<GalleryImageModalProps> = ({ isOpen, on
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Initialize form
+  // Initialize form and pre-load existing image preview
   useEffect(() => {
-    if (imageToEdit) {
-      setTitle(imageToEdit.title || '');
-      setDescription(imageToEdit.description || '');
-      setTagsText(imageToEdit.tags?.join(', ') || '');
-      setEventDate(imageToEdit.eventDate?.substring(0, 10) || new Date().toISOString().substring(0, 10));
-      setRelatedChar(imageToEdit.relatedCharacterId || '');
-      setRelatedMem(imageToEdit.relatedMemoryId || '');
-      setFilePreview(null);
-      setFile(undefined);
-    } else {
-      setTitle('');
-      setDescription('');
-      setTagsText('');
-      setEventDate(new Date().toISOString().substring(0, 10));
-      setRelatedChar('');
-      setRelatedMem('');
-      setFilePreview(null);
-      setFile(undefined);
+    const init = async () => {
+      if (imageToEdit) {
+        setTitle(imageToEdit.title || '');
+        setDescription(imageToEdit.description || '');
+        setTagsText(imageToEdit.tags?.join(', ') || '');
+        setEventDate(imageToEdit.eventDate?.substring(0, 10) || new Date().toISOString().substring(0, 10));
+        setRelatedChar(imageToEdit.relatedCharacterId || '');
+        setRelatedMem(imageToEdit.relatedMemoryId || '');
+        setFile(undefined);
+
+        // Pre-load existing image preview
+        const url = await MediaService.getMediaUrl(imageToEdit.id);
+        setFilePreview(url);
+      } else {
+        setTitle('');
+        setDescription('');
+        setTagsText('');
+        setEventDate(new Date().toISOString().substring(0, 10));
+        setRelatedChar('');
+        setRelatedMem('');
+        setFilePreview(null);
+        setFile(undefined);
+      }
+      setError(null);
+    };
+
+    if (isOpen && campaign) {
+      init();
     }
-    setError(null);
-  }, [imageToEdit, isOpen]);
+  }, [imageToEdit, isOpen, campaign?.id]);
+
+  // Derive character names linked to the currently selected memory
+  const memoryCharacterNames = useMemo(() => {
+    if (!relatedMem) return [];
+    const memory = memories.find(m => m.id === relatedMem);
+    if (!memory?.characterIds?.length) return [];
+    return memory.characterIds
+      .map(cid => characters.find(c => c.id === cid)?.name)
+      .filter(Boolean) as string[];
+  }, [relatedMem, memories, characters]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
@@ -141,6 +160,23 @@ export const GalleryImageModal: React.FC<GalleryImageModalProps> = ({ isOpen, on
 
         {/* Scrollable Form Content */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto pr-1 -mr-1 scrollbar-thin space-y-4 font-serif text-sm">
+          {/* Image Preview (when editing existing) */}
+          {imageToEdit && filePreview && (
+            <div className="flex flex-col space-y-1">
+              <label className="text-xs font-medieval text-medieval-gold flex items-center space-x-1">
+                <ImageIcon className="w-3.5 h-3.5" />
+                <span>Imagem Atual</span>
+              </label>
+              <div className="w-full aspect-video rounded border border-medieval-gold/30 overflow-hidden bg-medieval-stone/50">
+                <img
+                  src={filePreview}
+                  alt={imageToEdit.title || 'Imagem da galeria'}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
+          )}
+
           {/* File Selector (Only when creating) */}
           {!imageToEdit && (
             <div className="flex flex-col space-y-1">
@@ -242,44 +278,57 @@ export const GalleryImageModal: React.FC<GalleryImageModalProps> = ({ isOpen, on
           </div>
 
           {/* Linkage dropdowns */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-3 bg-medieval-stone/40 border border-medieval-gold/10 rounded">
-            {/* Related Character */}
-            <div className="flex flex-col space-y-1">
-              <label className="text-xs font-medieval text-medieval-gold flex items-center space-x-1">
-                <Users className="w-3.5 h-3.5" />
-                <span>Herói Marcado</span>
-              </label>
-              <select
-                value={relatedChar}
-                onChange={(e) => setRelatedChar(e.target.value)}
-                className="medieval-input py-1.5 bg-medieval-stone"
-                disabled={loading}
-              >
-                <option value="">(Nenhum)</option>
-                {characters.map(char => (
-                  <option key={char.id} value={char.id}>{char.name}</option>
-                ))}
-              </select>
+          <div className="p-3 bg-medieval-stone/40 border border-medieval-gold/10 rounded space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Related Character */}
+              <div className="flex flex-col space-y-1">
+                <label className="text-xs font-medieval text-medieval-gold flex items-center space-x-1">
+                  <Users className="w-3.5 h-3.5" />
+                  <span>Herói Marcado</span>
+                </label>
+                <select
+                  value={relatedChar}
+                  onChange={(e) => setRelatedChar(e.target.value)}
+                  className="medieval-input py-1.5 bg-medieval-stone"
+                  disabled={loading}
+                >
+                  <option value="">(Nenhum)</option>
+                  {characters.map(char => (
+                    <option key={char.id} value={char.id}>{char.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Related Memory */}
+              <div className="flex flex-col space-y-1">
+                <label className="text-xs font-medieval text-medieval-gold flex items-center space-x-1">
+                  <Film className="w-3.5 h-3.5" />
+                  <span>Memória Relacionada</span>
+                </label>
+                <select
+                  value={relatedMem}
+                  onChange={(e) => setRelatedMem(e.target.value)}
+                  className="medieval-input py-1.5 bg-medieval-stone"
+                  disabled={loading}
+                >
+                  <option value="">(Nenhuma)</option>
+                  {memories.map(mem => (
+                    <option key={mem.id} value={mem.id}>{mem.title}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            {/* Related Memory */}
-            <div className="flex flex-col space-y-1">
-              <label className="text-xs font-medieval text-medieval-gold flex items-center space-x-1">
-                <Film className="w-3.5 h-3.5" />
-                <span>Memória Relacionada</span>
-              </label>
-              <select
-                value={relatedMem}
-                onChange={(e) => setRelatedMem(e.target.value)}
-                className="medieval-input py-1.5 bg-medieval-stone"
-                disabled={loading}
-              >
-                <option value="">(Nenhuma)</option>
-                {memories.map(mem => (
-                  <option key={mem.id} value={mem.id}>{mem.title}</option>
-                ))}
-              </select>
-            </div>
+            {/* Characters associated with the selected memory */}
+            {memoryCharacterNames.length > 0 && (
+              <div className="flex items-start gap-2 p-2 bg-medieval-darkGold/10 border border-medieval-gold/20 rounded text-xs">
+                <Shield className="w-4 h-4 text-medieval-gold flex-shrink-0 mt-0.5" />
+                <div>
+                  <span className="text-medieval-gold font-medieval">Heróis nesta memória:</span>
+                  <span className="text-medieval-silver ml-1">{memoryCharacterNames.join(', ')}</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Action Buttons */}
