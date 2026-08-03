@@ -19,7 +19,8 @@ export const CampaignHome: React.FC = () => {
 
   // Queries
   const stats = useLiveQuery(async () => {
-    const chars = await db.characters.where('campaignId').equals(campaign.id).count();
+    const allChars = await db.characters.where('campaignId').equals(campaign.id).toArray();
+    const chars = allChars.filter(c => c.characterType !== 'ally').length;
     const mems = await db.memories.where('campaignId').equals(campaign.id).count();
     const tokensCount = await db.tokens.where('campaignId').equals(campaign.id).count();
     return { chars, mems, tokensCount };
