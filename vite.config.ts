@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg'],
+      includeAssets: ['favicon.svg', 'logo.png'],
       workbox: {
         skipWaiting: true,
         clientsClaim: true,
@@ -17,21 +17,33 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
       },
       manifest: {
-        name: 'Crônicas da Jornada',
-        short_name: 'Crônicas',
+        name: 'Rolando Histórias',
+        short_name: 'Rolando Histórias',
         description: 'Registre, organize e preserve a história de suas campanhas de RPG.',
-        theme_color: '#0f0f12',
-        background_color: '#0f0f12',
+        theme_color: '#0A0A0C',
+        background_color: '#0A0A0C',
         display: 'standalone',
         orientation: 'portrait',
         scope: '/',
         start_url: '/',
         icons: [
           {
-            src: 'favicon.svg',
-            sizes: 'any',
-            type: 'image/svg+xml',
-            purpose: 'any maskable'
+            src: 'logo.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: 'logo.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: 'logo.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
           }
         ]
       }
