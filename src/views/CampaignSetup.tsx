@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useCampaign } from '../contexts/CampaignContext';
 import { useRouter } from '../contexts/RouterContext';
-import { Shield, BookOpen, PenTool, Image as ImageIcon } from 'lucide-react';
+import { BackupService } from '../services/backup';
+import { OperationOverlay } from '../components/ui/OperationOverlay';
+import { Shield, BookOpen, PenTool, Image as ImageIcon, Upload } from 'lucide-react';
 
 export const CampaignSetup: React.FC = () => {
   const { createCampaign, campaigns, switchCampaign } = useCampaign();
@@ -13,6 +15,11 @@ export const CampaignSetup: React.FC = () => {
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Overlay states for backup restore
+  const [progress, setProgress] = useState<number | null>(null);
+  const [statusText, setStatusText] = useState('');
+  const [operationResult, setOperationResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -44,6 +51,63 @@ export const CampaignSetup: React.FC = () => {
       setError(err.message || 'Erro ao criar a campanha. Tente novamente.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const isJson = file.name.endsWith('.json');
+    const isZip = file.name.endsWith('.zip');
+
+    if (!isJson && !isZip) {
+      setOperationResult({ type: 'error', message: 'Formato de arquivo inválido. Selecione um .json ou .zip de backup.' });
+      return;
+    }
+
+    setLoading(true);
+    setOperationResult(null);
+    setProgress(0);
+    setStatusText('Validando arquivo de memórias...');
+
+    try {
+      let importedIds: string[] = [];
+      if (isJson) {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        setProgress(50);
+        setStatusText('Restaurando tabelas de dados...');
+        importedIds = await BackupService.importJSONData(data, file.name);
+        setProgress(100);
+        setOperationResult({
+          type: 'success',
+          message: 'Dados de crônicas restaurados com sucesso.',
+        });
+      } else {
+        importedIds = await BackupService.importFullZipData(file, (p) => {
+          setProgress(p);
+          setStatusText(`Extraindo e otimizando miniaturas... (${p}%)`);
+        });
+        setOperationResult({
+          type: 'success',
+          message: 'Memória completa e galeria de imagens restauradas com sucesso.',
+        });
+      }
+
+      if (importedIds.length > 0) {
+        const firstId = importedIds[0];
+        // Switch and navigate immediately on first-time import
+        switchCampaign(firstId);
+        navigate({ type: 'dashboard' });
+      }
+    } catch (err: any) {
+      setOperationResult({ type: 'error', message: err.message || 'Erro ao importar arquivo de backup.' });
+    } finally {
+      setLoading(false);
+      setProgress(null);
+      // Clear input
+      e.target.value = '';
     }
   };
 
@@ -178,8 +242,39 @@ export const CampaignSetup: React.FC = () => {
               {loading ? 'Entalhando...' : 'Criar Grimório'}
             </button>
           </div>
+
+          {/* OR Divider and Import Backup Button */}
+          <div className="relative my-6 flex items-center justify-center">
+            <span className="absolute inset-x-0 h-px bg-medieval-gold/15 animate-pulse" />
+            <span className="relative bg-medieval-stone/95 px-3 text-[10px] uppercase font-medieval tracking-widest text-medieval-gold/60">
+              Ou se preferir
+            </span>
+          </div>
+
+          <div className="text-center">
+            <label className="btn-stone cursor-pointer py-2.5 px-4 text-xs font-medieval font-bold uppercase tracking-wider inline-flex items-center space-x-2 w-full justify-center">
+              <Upload className="w-4 h-4 text-medieval-gold" />
+              <span>Importar Grimório de um Backup (.zip/.json)</span>
+              <input
+                type="file"
+                accept=".json,.zip"
+                onChange={handleImportFile}
+                className="hidden"
+                disabled={loading}
+              />
+            </label>
+          </div>
         </form>
       </div>
+
+      {/* Progress / Result overlay */}
+      <OperationOverlay
+        isActive={loading}
+        progress={progress}
+        statusText={statusText}
+        result={operationResult}
+        onDismiss={() => setOperationResult(null)}
+      />
     </div>
   );
 };

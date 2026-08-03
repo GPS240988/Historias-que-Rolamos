@@ -62,10 +62,13 @@ export const BackupService = {
 
     const campaignName = data.campaigns[0]?.name.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'campanha';
     const dateStr = new Date().toISOString().substring(0, 10);
+    const now = new Date();
+    const timeStr = now.toTimeString().substring(0, 8).replace(/:/g, '');
+    const versionStr = `v${timeStr}`;
 
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `memoria_${campaignName}_${dateStr}.json`;
+    a.download = `memoria_${campaignName}_${dateStr}_${versionStr}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
   },
@@ -116,9 +119,12 @@ export const BackupService = {
     // 4. Download file
     const campaignName = data.campaigns[0]?.name.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'campanha';
     const dateStr = new Date().toISOString().substring(0, 10);
+    const now = new Date();
+    const timeStr = now.toTimeString().substring(0, 8).replace(/:/g, '');
+    const versionStr = `v${timeStr}`;
     const a = document.createElement('a');
     a.href = URL.createObjectURL(zipBlob);
-    a.download = `backup_completo_${campaignName}_${dateStr}.zip`;
+    a.download = `backup_completo_${campaignName}_${dateStr}_${versionStr}.zip`;
     a.click();
     URL.revokeObjectURL(a.href);
   },
@@ -127,10 +133,19 @@ export const BackupService = {
    * Parses and imports campaign structured JSON data into IndexedDB.
    * Wipes existing data for the imported campaigns before overwriting.
    */
-  async importJSONData(backup: CampaignBackup): Promise<void> {
+  async importJSONData(backup: CampaignBackup, filename?: string): Promise<string[]> {
     if (!backup.campaigns || backup.campaigns.length === 0) {
       throw new Error('Formato de backup inválido. Campanha não encontrada.');
     }
+
+    // Update campaigns with the backup filename version reference
+    if (filename) {
+      for (const camp of backup.campaigns) {
+        camp.lastImportedFrom = filename;
+      }
+    }
+
+    const campaignIds = backup.campaigns.map(c => c.id);
 
     await db.transaction('rw', [db.campaigns, db.characters, db.memories, db.tokens, db.memoryCharacters, db.media], async () => {
       // Scoped delete for campaigns present in backup
@@ -159,20 +174,22 @@ export const BackupService = {
         for (const meta of backup.mediaMetadata) {
           const fallbackMedia: Media = {
             ...meta,
-            blob: new Blob([], { type: meta.mimeType }), // Empty fallback blob
-            thumbnailBlob: new Blob([], { type: meta.mimeType })
+            blob: new Blob([], { type: meta.mimeType }),
+            thumbnail: new Blob([], { type: meta.mimeType })
           };
           await db.media.put(fallbackMedia);
         }
       }
     });
+
+    return campaignIds;
   },
 
   /**
    * Extracts and restores a full campaign from a ZIP file.
    * Parses db.json, fetches media files, rebuilds canvas thumbnails, and commits to IndexedDB.
    */
-  async importFullZipData(file: File, onProgress?: (progress: number) => void): Promise<void> {
+  async importFullZipData(file: File, onProgress?: (progress: number) => void): Promise<string[]> {
     const zip = await JSZip.loadAsync(file);
 
     // 1. Read db.json
@@ -189,7 +206,63 @@ export const BackupService = {
       throw new Error('Backup inválido. Nenhum registro de campanha encontrado.');
     }
 
-    // 3. Scoped clear and insert structured tables
+    // Set backup version source
+    for (const camp of backupData.campaigns) {
+      camp.lastImportedFrom = file.name;
+    }
+
+    const campaignIds = backupData.campaigns.map(c => c.id);
+
+    // 3. Pre-process media files and generate thumbnails OUTSIDE of the transaction
+    const metadataList = backupData.mediaMetadata || [];
+    const totalMedia = metadataList.length;
+    const preparedMediaRecords: Media[] = [];
+
+    for (let i = 0; i < totalMedia; i++) {
+      const meta = metadataList[i];
+
+      // Find matching binary inside ZIP folder /media
+      const fileExt = meta.filename.split('.').pop() || 'bin';
+      const zipPath = `media/${meta.id}.${fileExt}`;
+      const zipFile = zip.file(zipPath);
+
+      let blob = new Blob([], { type: meta.mimeType });
+      let thumbnailBlob = blob;
+
+      if (zipFile) {
+        blob = await zipFile.async('blob');
+
+        // Re-generate optimized thumbnail and preview dimensions
+        if (meta.mimeType !== 'image/svg+xml' && blob.size > 0) {
+          try {
+            // Convert blob to File wrapper for canvas utility
+            const imgFile = new File([blob], meta.filename, { type: meta.mimeType });
+            thumbnailBlob = await generateThumbnail(imgFile);
+          } catch (err) {
+            console.warn('Could not recreate thumbnail for media:', meta.id, err);
+            thumbnailBlob = blob;
+          }
+        } else {
+          thumbnailBlob = blob;
+        }
+      }
+
+      preparedMediaRecords.push({
+        ...meta,
+        blob,
+        thumbnail: thumbnailBlob
+      });
+
+      if (onProgress) {
+        onProgress(Math.round(((i + 1) / totalMedia) * 90)); // Save last 10% for DB transaction write
+      }
+    }
+
+    if (onProgress && totalMedia === 0) {
+      onProgress(90);
+    }
+
+    // 4. Perform structured tables deletion and inserts in a single quick database transaction
     await db.transaction('rw', [db.campaigns, db.characters, db.memories, db.tokens, db.memoryCharacters, db.media], async () => {
       for (const camp of backupData.campaigns) {
         await db.campaigns.delete(camp.id);
@@ -210,56 +283,16 @@ export const BackupService = {
       for (const tok of backupData.tokens) await db.tokens.put(tok);
       for (const mchar of backupData.memoryCharacters) await db.memoryCharacters.put(mchar);
 
-      // 4. Restore media files and generate thumbnails
-      const metadataList = backupData.mediaMetadata || [];
-      const totalMedia = metadataList.length;
-
-      if (totalMedia === 0 && onProgress) {
-        onProgress(100);
-        return;
-      }
-
-      for (let i = 0; i < totalMedia; i++) {
-        const meta = metadataList[i];
-
-        // Find matching binary inside ZIP folder /media
-        const fileExt = meta.filename.split('.').pop() || 'bin';
-        const zipPath = `media/${meta.id}.${fileExt}`;
-        const zipFile = zip.file(zipPath);
-
-        let blob = new Blob([], { type: meta.mimeType });
-        let thumbnailBlob = blob;
-
-        if (zipFile) {
-          blob = await zipFile.async('blob');
-
-          // Re-generate optimized thumbnail and preview dimensions
-          if (meta.mimeType !== 'image/svg+xml' && blob.size > 0) {
-            try {
-              // Convert blob to File wrapper for canvas utility
-              const imgFile = new File([blob], meta.filename, { type: meta.mimeType });
-              thumbnailBlob = await generateThumbnail(imgFile);
-            } catch (err) {
-              console.warn('Could not recreate thumbnail for media:', meta.id, err);
-              thumbnailBlob = blob;
-            }
-          } else {
-            thumbnailBlob = blob;
-          }
-        }
-
-        const mediaRecord: Media = {
-          ...meta,
-          blob,
-          thumbnailBlob
-        };
-
+      // Save prepared media records
+      for (const mediaRecord of preparedMediaRecords) {
         await db.media.put(mediaRecord);
-
-        if (onProgress) {
-          onProgress(Math.round(((i + 1) / totalMedia) * 100));
-        }
       }
     });
+
+    if (onProgress) {
+      onProgress(100);
+    }
+
+    return campaignIds;
   }
 };

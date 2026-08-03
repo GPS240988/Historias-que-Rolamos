@@ -5,6 +5,7 @@ import { useRouter } from '../contexts/RouterContext';
 import { useCampaign } from '../contexts/CampaignContext';
 import { useMediaUrl } from '../hooks/useMediaUrl';
 import { MediaService } from '../services/media';
+import { useConfirmation } from '../contexts/ConfirmationContext';
 import { GalleryImageModal } from '../components/gallery/GalleryImageModal';
 import { TokenModal } from '../components/gallery/TokenModal';
 import { ImageDetailModal } from '../components/gallery/ImageDetailModal';
@@ -87,29 +88,43 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ tab = 'images' }) => {
     navigate({ type: 'gallery', tab: targetTab });
   };
 
+  const { confirm } = useConfirmation();
+
   // Delete handlers
   const handleImageDelete = async (mediaId: string) => {
-    if (window.confirm('Excluir esta imagem da galeria? Isso apagará o arquivo físico.')) {
-      try {
-        await MediaService.deleteMedia(mediaId);
-        setImageDetailOpen(false);
-        setSelectedImage(null);
-      } catch (err) {
-        console.error('Erro ao deletar imagem:', err);
-      }
+    const confirmed = await confirm({
+      title: 'Excluir Imagem',
+      message: 'Excluir esta imagem da galeria? Isso apagará o arquivo físico.',
+      confirmLabel: 'Excluir',
+      cancelLabel: 'Cancelar',
+      isDestructive: true,
+    });
+    if (!confirmed) return;
+    try {
+      await MediaService.deleteMedia(mediaId);
+      setImageDetailOpen(false);
+      setSelectedImage(null);
+    } catch (err) {
+      console.error('Erro ao deletar imagem:', err);
     }
   };
 
   const handleTokenDelete = async (token: Token) => {
-    if (window.confirm(`Deseja excluir o token "${token.name}"?`)) {
-      try {
-        await MediaService.deleteMedia(token.mediaId);
-        await db.tokens.delete(token.id);
-        setTokenDetailOpen(false);
-        setSelectedToken(null);
-      } catch (err) {
-        console.error('Erro ao deletar token:', err);
-      }
+    const confirmed = await confirm({
+      title: 'Excluir Token',
+      message: `Deseja excluir o token "${token.name}"?`,
+      confirmLabel: 'Excluir',
+      cancelLabel: 'Cancelar',
+      isDestructive: true,
+    });
+    if (!confirmed) return;
+    try {
+      await MediaService.deleteMedia(token.mediaId);
+      await db.tokens.delete(token.id);
+      setTokenDetailOpen(false);
+      setSelectedToken(null);
+    } catch (err) {
+      console.error('Erro ao deletar token:', err);
     }
   };
 

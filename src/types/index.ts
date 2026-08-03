@@ -7,6 +7,15 @@ export interface Campaign {
   startDate: string;
   createdAt: string;
   updatedAt: string;
+  lastImportedFrom?: string;
+}
+
+export interface CharacterEvolution {
+  id: string;
+  date: string; // ISO date format YYYY-MM-DD
+  comment: string;
+  author: string; // Who made the comment ("Mestre" or a character name)
+  memoryId?: string; // Linked memory/adventure
 }
 
 export interface Character {
@@ -14,6 +23,7 @@ export interface Character {
   campaignId: string;
   playerName: string;
   name: string;
+  characterType: 'hero' | 'ally';
   race: string;
   origin: string; // First-class search field
   class: string;
@@ -26,7 +36,15 @@ export interface Character {
   description: string;
   notes: string;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
+  evolutions?: CharacterEvolution[];
+}
+
+export interface MemoryComment {
+  id: string;
+  date: string; // ISO date format YYYY-MM-DD
+  comment: string;
+  author: string; // Who made the comment ("Mestre" or a character name)
 }
 
 export interface Memory {
@@ -34,13 +52,13 @@ export interface Memory {
   campaignId: string;
   title: string;
   description: string; // Relato Narrativo Mestre
-  descriptionRhodgar?: string; // Relato Narrativo Rhodgar
-  descriptionErnest?: string; // Relato Narrativo Ernest
+  heroDescriptions?: Record<string, string>; // Relatos Narrativos por ID do Herói
   eventDate: string; // ISO date (YYYY-MM-DD) for timeline ordering
   type: MemoryType;
   imageId?: string;
   characterIds: string[]; // Tagged characters (many-to-many inline)
   tags: string[]; // List of tags (many-to-many inline)
+  comments?: MemoryComment[]; // Inline comments on this memory
   createdAt: string;
   updatedAt: string;
 }
@@ -59,43 +77,26 @@ export type MemoryType =
   | "Momento Engraçado"
   | "Momento Lendário";
 
-
 export interface Media {
   id: string;
   campaignId: string;
   filename: string;
   mimeType: string;
   size: number;
-  width: number;
-  height: number;
-  blob: Blob; // High quality image blob
-  thumbnailBlob: Blob; // 300x300 thumbnail blob
-  title?: string; // Optional gallery image title
-  description?: string; // Optional gallery description
-  eventDate?: string; // Optional creation/event date
-  relatedCharacterId?: string; // Optional link to character
-  relatedMemoryId?: string; // Optional link to memory
-  tags?: string[]; // Optional tags list
-  isGallery?: boolean; // Flag to filter user direct uploads in the gallery
+  width?: number;
+  height?: number;
+  blob: Blob;
+  thumbnail?: Blob;
+  title?: string;
+  description?: string;
+  eventDate?: string;
+  relatedCharacterId?: string;
+  relatedMemoryId?: string;
+  tags?: string[];
+  isGallery: boolean;
   createdAt: string;
 }
 
-export interface Token {
-  id: string;
-  campaignId: string;
-  name: string;
-  category: TokenCategory;
-  mediaId: string; // Reference to Media
-  relatedCharacterId?: string; // Reference to Character
-  notes: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export type TokenCategory = "Player Character" | "NPC" | "Enemy";
-
-
-// Full Campaign Backup structure (JSON part)
 export interface MemoryCharacter {
   id: string;
   memoryId: string;
@@ -103,6 +104,19 @@ export interface MemoryCharacter {
   levelReached?: number;
 }
 
+export interface Token {
+  id: string;
+  campaignId: string;
+  name: string;
+  mediaId: string;
+  category: 'Player Character' | 'NPC' | 'Enemy';
+  relatedCharacterId?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Full Campaign Backup structure (JSON part)
 export interface CampaignBackup {
   version: string;
   campaigns: Campaign[];
@@ -110,6 +124,5 @@ export interface CampaignBackup {
   memories: Memory[];
   memoryCharacters: MemoryCharacter[];
   tokens: Token[];
-  mediaMetadata: Omit<Media, 'blob' | 'thumbnailBlob'>[];
+  mediaMetadata: Omit<Media, 'blob' | 'thumbnail'>[];
 }
-

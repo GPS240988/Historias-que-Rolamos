@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useCampaign } from '../contexts/CampaignContext';
+import { useConfirmation } from '../contexts/ConfirmationContext';
 import { BackupService } from '../services/backup';
+import { OperationOverlay } from '../components/ui/OperationOverlay';
 import {
   Upload,
   Trash2,
-  FileJson,
   Archive,
-  RefreshCw,
   HardDrive,
   ChevronRight,
   BookOpen
@@ -14,12 +14,13 @@ import {
 
 export const SettingsView: React.FC = () => {
   const { campaign, campaigns, switchCampaign, deleteCampaign, theme, setTheme } = useCampaign();
+  const { confirm } = useConfirmation();
 
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [statusText, setStatusText] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [operationResult, setOperationResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [importedCampaignId, setImportedCampaignId] = useState<string | null>(null);
   const [campaignToDelete, setCampaignToDelete] = useState('');
 
   // Storage usage details
@@ -34,55 +35,49 @@ export const SettingsView: React.FC = () => {
         setStorageUsage({ used: `${usedMB} MB`, total: `${totalMB} MB`, percent: percentage || 1 });
       });
     }
-  }, [success]);
+  }, [operationResult]);
 
   const handleSeedCoraçãoRubi = async () => {
     if (!campaign) {
-      setError('Crie uma campanha primeiro antes de alimentar as crônicas.');
+      setOperationResult({ type: 'error', message: 'Crie uma campanha primeiro antes de alimentar as crônicas.' });
       return;
     }
 
-    if (window.confirm('Isso carregará as 20 memórias e crônicas completas do livro Coração de Rubi na sua campanha atual. Continuar?')) {
-      setLoading(true);
-      setError(null);
-      setSuccess(null);
-      setProgress(50);
-      setStatusText('Consultando o Grimório do Coração de Rubi...');
+    const confirmed = await confirm({
+      title: 'Carregar Crônica',
+      message: 'Isso carregará as 20 memórias e crônicas completas do livro Coração de Rubi na sua campanha atual. Continuar?',
+      confirmLabel: 'Carregar',
+      cancelLabel: 'Cancelar',
+    });
+    if (!confirmed) return;
 
-      try {
-        const { seedCampaignMemories } = await import('../db/seeder');
-        await seedCampaignMemories(campaign.id);
-        setProgress(100);
-        setSuccess('Crônica oficial "Coração de Rubi" (20 partes) carregada com sucesso no Grimório!');
-      } catch (err: any) {
-        setError(err.message || 'Erro ao carregar as memórias da campanha.');
-      } finally {
-        setLoading(false);
-        setProgress(null);
-      }
-    }
-  };
-
-  const handleExportJSON = async () => {
-    if (!campaign) return;
     setLoading(true);
-    setError(null);
-    setSuccess(null);
+    setOperationResult(null);
+    setProgress(50);
+    setStatusText('Consultando o Grimório do Coração de Rubi...');
+
     try {
-      await BackupService.exportJSONBackup(campaign.id);
-      setSuccess('Dados de crônicas (JSON) exportados com sucesso.');
+      const { seedCampaignMemories } = await import('../db/seeder');
+      await seedCampaignMemories(campaign.id);
+      setProgress(100);
+      setOperationResult({
+        type: 'success',
+        message: 'Crônica oficial "Coração de Rubi" (20 partes) carregada com sucesso no Grimório!',
+      });
     } catch (err: any) {
-      setError(err.message || 'Erro ao exportar JSON.');
+      setOperationResult({ type: 'error', message: err.message || 'Erro ao carregar as memórias da campanha.' });
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   };
+
+  // handleExportJSON: hidden from UI intentionally — preserved via BackupService.exportJSONBackup(campaign.id)
 
   const handleExportZIP = async () => {
     if (!campaign) return;
     setLoading(true);
-    setError(null);
-    setSuccess(null);
+    setOperationResult(null);
     setProgress(0);
     setStatusText('Agrupando imagens e estruturando memória...');
     try {
@@ -92,9 +87,12 @@ export const SettingsView: React.FC = () => {
           setStatusText('Gerando arquivo ZIP compactado...');
         }
       });
-      setSuccess('Memória completa (ZIP) exportada com sucesso.');
+      setOperationResult({
+        type: 'success',
+        message: 'Memória completa (ZIP) exportada com sucesso.',
+      });
     } catch (err: any) {
-      setError(err.message || 'Erro ao exportar ZIP.');
+      setOperationResult({ type: 'error', message: err.message || 'Erro ao exportar ZIP.' });
     } finally {
       setLoading(false);
       setProgress(null);
@@ -109,31 +107,44 @@ export const SettingsView: React.FC = () => {
     const isZip = file.name.endsWith('.zip');
 
     if (!isJson && !isZip) {
-      setError('Formato de arquivo inválido. Selecione um .json ou .zip de backup.');
+      setOperationResult({ type: 'error', message: 'Formato de arquivo inválido. Selecione um .json ou .zip de backup.' });
       return;
     }
 
     setLoading(true);
-    setError(null);
-    setSuccess(null);
+    setOperationResult(null);
     setProgress(0);
     setStatusText('Validando arquivo de memórias...');
 
     try {
+      let importedIds: string[] = [];
       if (isJson) {
         const text = await file.text();
         const data = JSON.parse(text);
-        await BackupService.importJSONData(data);
-        setSuccess('Dados de crônicas restaurados com sucesso.');
+        setProgress(50);
+        setStatusText('Restaurando tabelas de dados...');
+        importedIds = await BackupService.importJSONData(data, file.name);
+        setProgress(100);
+        setOperationResult({
+          type: 'success',
+          message: 'Dados de crônicas restaurados com sucesso.',
+        });
       } else {
-        await BackupService.importFullZipData(file, (p) => {
+        importedIds = await BackupService.importFullZipData(file, (p) => {
           setProgress(p);
           setStatusText(`Extraindo e otimizando miniaturas... (${p}%)`);
         });
-        setSuccess('Memória completa e galeria de imagens restauradas com sucesso.');
+        setOperationResult({
+          type: 'success',
+          message: 'Memória completa e galeria de imagens restauradas com sucesso.',
+        });
+      }
+
+      if (importedIds.length > 0) {
+        setImportedCampaignId(importedIds[0]);
       }
     } catch (err: any) {
-      setError(err.message || 'Erro ao importar arquivo de backup.');
+      setOperationResult({ type: 'error', message: err.message || 'Erro ao importar arquivo de backup.' });
     } finally {
       setLoading(false);
       setProgress(null);
@@ -144,33 +155,36 @@ export const SettingsView: React.FC = () => {
 
   const handleDeleteSelectedCampaign = async () => {
     if (!campaignToDelete) {
-      setError('Por favor, selecione um grimório para excluir.');
+      setOperationResult({ type: 'error', message: 'Por favor, selecione um grimório para excluir.' });
       return;
     }
     const target = campaigns.find(c => c.id === campaignToDelete);
     if (!target) return;
 
-    const confirm1 = `CUIDADO: Isso apagará TODOS os heróis, memórias e galeria de imagens do grimório "${target.name}" de forma irreversível. Tem certeza?`;
-    const confirm2 = `ÚLTIMO AVISO: Perda definitiva de dados. Digite "FORMATAR" para confirmar a exclusão de "${target.name}":`;
+    const confirmed = await confirm({
+      title: 'Excluir Grimório',
+      message: `CUIDADO: Isso apagará TODOS os heróis, memórias e galeria de imagens do grimório "${target.name}" de forma irreversível.\n\nDigite "FORMATAR" para confirmar a exclusão:`,
+      confirmLabel: 'Excluir Permanentemente',
+      cancelLabel: 'Cancelar',
+      isDestructive: true,
+      requiredInput: 'FORMATAR',
+      inputPlaceholder: 'Digite FORMATAR para confirmar',
+    });
+    if (!confirmed) return;
 
-    if (window.confirm(confirm1)) {
-      const response = window.prompt(confirm2);
-      if (response === 'FORMATAR') {
-        setLoading(true);
-        setError(null);
-        setSuccess(null);
-        try {
-          await deleteCampaign(target.id);
-          setSuccess(`Grimório "${target.name}" excluído com sucesso.`);
-          setCampaignToDelete('');
-        } catch (err: any) {
-          setError('Erro ao excluir grimório: ' + err.message);
-        } finally {
-          setLoading(false);
-        }
-      } else if (response !== null) {
-        alert('Confirmação inválida. Operação abortada.');
-      }
+    setLoading(true);
+    setOperationResult(null);
+    try {
+      await deleteCampaign(target.id);
+      setOperationResult({
+        type: 'success',
+        message: `Grimório "${target.name}" excluído com sucesso.`,
+      });
+      setCampaignToDelete('');
+    } catch (err: any) {
+      setOperationResult({ type: 'error', message: 'Erro ao excluir grimório: ' + err.message });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -208,6 +222,11 @@ export const SettingsView: React.FC = () => {
                 <span className="text-[11px] text-medieval-silver block mt-0.5">
                   Sistema: {c.system} • Iniciada em: {new Date(c.startDate).toLocaleDateString('pt-BR')}
                 </span>
+                {c.lastImportedFrom && (
+                  <span className="text-[10px] text-medieval-gold/80 block mt-1 font-serif italic truncate max-w-[250px] sm:max-w-[350px]" title={c.lastImportedFrom}>
+                    Importado de: {c.lastImportedFrom}
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center space-x-2">
@@ -222,10 +241,19 @@ export const SettingsView: React.FC = () => {
                 )}
                 <button
                   onClick={async () => {
-                    if (window.confirm(`Tem certeza de que deseja apagar permanentemente o grimório "${c.name}"? Todos os heróis, memórias e imagens desta campanha serão apagados.`)) {
-                      await deleteCampaign(c.id);
-                      setSuccess(`Grimório "${c.name}" excluído com sucesso.`);
-                    }
+                    const confirmed = await confirm({
+                      title: 'Excluir Grimório',
+                      message: `Tem certeza de que deseja apagar permanentemente o grimório "${c.name}"? Todos os heróis, memórias e imagens desta campanha serão apagados.`,
+                      confirmLabel: 'Excluir',
+                      cancelLabel: 'Cancelar',
+                      isDestructive: true,
+                    });
+                    if (!confirmed) return;
+                    await deleteCampaign(c.id);
+                    setOperationResult({
+                      type: 'success',
+                      message: `Grimório "${c.name}" excluído com sucesso.`,
+                    });
                   }}
                   className="p-1.5 rounded hover:bg-medieval-wine/25 text-medieval-silver hover:text-medieval-wine transition-colors cursor-pointer"
                   title="Excluir Grimório"
@@ -295,36 +323,19 @@ export const SettingsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Alerts */}
-      {error && (
-        <div className="p-3 bg-medieval-wine/25 border border-medieval-wine/50 rounded text-red-300">
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="p-3 bg-green-950/40 border border-green-800/40 rounded text-green-300">
-          {success}
-        </div>
-      )}
-
-      {/* Loading & Progress indicator overlay */}
-      {loading && progress !== null && (
-        <div className="grimoire-card p-4 border-medieval-gold/30 bg-medieval-stone/90 space-y-3">
-          <div className="flex justify-between items-center text-xs">
-            <span className="text-medieval-gold font-medieval flex items-center">
-              <RefreshCw className="w-4 h-4 mr-1.5 animate-spin text-medieval-gold" />
-              {statusText}
-            </span>
-            <span className="text-medieval-silver">{progress}%</span>
-          </div>
-          <div className="w-full bg-medieval-charcoal/80 h-2 rounded overflow-hidden border border-medieval-gold/15">
-            <div
-              className="bg-gradient-to-r from-medieval-gold to-medieval-brightGold h-full rounded transition-all duration-150"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-      )}
+      {/* Operation progress/result overlay */}
+      <OperationOverlay
+        isActive={loading}
+        progress={progress}
+        statusText={statusText}
+        result={operationResult}
+        onDismiss={() => {
+          setOperationResult(null);
+          setImportedCampaignId(null);
+        }}
+        secondaryActionLabel={importedCampaignId ? "Alternar para Grimório" : undefined}
+        onSecondaryAction={importedCampaignId ? () => switchCampaign(importedCampaignId) : undefined}
+      />
 
       {/* Storage Estimate Panel */}
       {storageUsage && (
@@ -391,6 +402,7 @@ export const SettingsView: React.FC = () => {
         </span>
         <div className="grimoire-card divide-y divide-medieval-gold/10 overflow-hidden">
 
+          {/* 
           <button
             onClick={handleExportJSON}
             className="w-full p-4 flex items-center justify-between hover:bg-medieval-stone/30 transition-all duration-200 text-left group"
@@ -407,6 +419,7 @@ export const SettingsView: React.FC = () => {
             </div>
             <ChevronRight className="w-4 h-4 text-medieval-gold/40 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-200" />
           </button>
+          */}
 
           <button
             onClick={handleExportZIP}

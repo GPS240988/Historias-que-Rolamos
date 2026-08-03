@@ -21,7 +21,7 @@ function parseHash(hash: string): ViewState {
   const path = hash.replace(/^#\/?/, '');
   if (!path) return { type: 'dashboard' };
 
-  const parts = path.split('/');
+  const parts = path.split('/').map(part => decodeURIComponent(part));
   const route = parts[0];
 
   switch (route) {

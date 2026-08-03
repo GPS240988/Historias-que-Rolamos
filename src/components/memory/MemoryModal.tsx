@@ -7,6 +7,7 @@ import { db } from '../../db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { X, Calendar, Edit3, Tag, Users, Plus, Image as ImageIcon } from 'lucide-react';
 import { useMediaUrl } from '../../hooks/useMediaUrl';
+import { useConfirmation } from '../../contexts/ConfirmationContext';
 
 interface MemoryModalProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ const MEMORY_TYPES = [
 
 export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, memoryToEdit }) => {
   const { campaign } = useCampaign();
+  const { confirm } = useConfirmation();
 
   // Load all characters to select in checklist
   const allCharacters = useLiveQuery(() => campaign ? db.characters.where('campaignId').equals(campaign.id).toArray() : [], [campaign?.id]) || [];
@@ -39,8 +41,7 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, memor
   const [eventDate, setEventDate] = useState(new Date().toISOString().substring(0, 10)); // YYYY-MM-DD
   const [type, setType] = useState('Interpretação');
   const [description, setDescription] = useState('');
-  const [descriptionRhodgar, setDescriptionRhodgar] = useState('');
-  const [descriptionErnest, setDescriptionErnest] = useState('');
+  const [heroDescriptions, setHeroDescriptions] = useState<Record<string, string>>({});
   const [tagsText, setTagsText] = useState('');
 
   // Track selected characters and their level up info
@@ -65,8 +66,7 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, memor
         setEventDate(memoryToEdit.eventDate.substring(0, 10));
         setType(memoryToEdit.type);
         setDescription(memoryToEdit.description);
-        setDescriptionRhodgar(memoryToEdit.descriptionRhodgar || '');
-        setDescriptionErnest(memoryToEdit.descriptionErnest || '');
+        setHeroDescriptions(memoryToEdit.heroDescriptions || {});
         setTagsText(memoryToEdit.tags.join(', '));
 
         // Fetch existing relations for this memory
@@ -111,8 +111,7 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, memor
         setEventDate(new Date().toISOString().substring(0, 10));
         setType('Interpretação');
         setDescription('');
-        setDescriptionRhodgar('');
-        setDescriptionErnest('');
+        setHeroDescriptions({});
         setTagsText('');
 
         const initialSelected: Record<string, { selected: boolean; levelUp: boolean; level: number }> = {};
@@ -210,13 +209,19 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, memor
   };
 
   const handleDeleteExistingPhoto = async (photoId: string) => {
-    if (window.confirm('Excluir esta foto vinculada? Isso a apagará permanentemente.')) {
-      try {
-        await MediaService.deleteMedia(photoId);
-        setExistingPhotos(prev => prev.filter(p => p.id !== photoId));
-      } catch (err: any) {
-        setError('Erro ao deletar imagem existente: ' + err.message);
-      }
+    const confirmed = await confirm({
+      title: 'Excluir Foto',
+      message: 'Excluir esta foto vinculada? Isso a apagará permanentemente.',
+      confirmLabel: 'Excluir',
+      cancelLabel: 'Cancelar',
+      isDestructive: true,
+    });
+    if (!confirmed) return;
+    try {
+      await MediaService.deleteMedia(photoId);
+      setExistingPhotos(prev => prev.filter(p => p.id !== photoId));
+    } catch (err: any) {
+      setError('Erro ao deletar imagem existente: ' + err.message);
     }
   };
 
@@ -265,13 +270,13 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, memor
         eventDate: new Date(eventDate).toISOString(),
         type: type as MemoryType,
         description: description.trim(),
-        descriptionRhodgar: descriptionRhodgar.trim() || undefined,
-        descriptionErnest: descriptionErnest.trim() || undefined,
+        heroDescriptions,
         tags: tags,
         characterIds: Object.keys(selectedChars).filter(id => selectedChars[id].selected),
         imageId,
         createdAt: memoryToEdit?.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        comments: memoryToEdit?.comments
       };
 
       await db.memories.put(memoryData);
@@ -398,31 +403,30 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, memor
             />
           </div>
 
-          {/* Description Rhodgar */}
-          <div className="flex flex-col space-y-1">
-            <label className="text-xs font-medieval text-medieval-gold">Relato Narrativo Rhodgar</label>
-            <textarea
-              value={descriptionRhodgar}
-              onChange={(e) => setDescriptionRhodgar(e.target.value)}
-              placeholder="O que o herói Rhodgar registrou sobre este acontecimento..."
-              rows={3}
-              className="medieval-input resize-none py-1.5"
-              disabled={loading}
-            />
-          </div>
-
-          {/* Description Ernest */}
-          <div className="flex flex-col space-y-1">
-            <label className="text-xs font-medieval text-medieval-gold">Relato Narrativo Ernest</label>
-            <textarea
-              value={descriptionErnest}
-              onChange={(e) => setDescriptionErnest(e.target.value)}
-              placeholder="O que o herói Ernest registrou sobre este acontecimento..."
-              rows={3}
-              className="medieval-input resize-none py-1.5"
-              disabled={loading}
-            />
-          </div>
+          {/* Dynamic Hero Descriptions */}
+          {allCharacters
+            .filter(char => char.characterType !== 'ally')
+            .map(char => (
+              <div key={char.id} className="flex flex-col space-y-1">
+                <label className="text-xs font-medieval text-medieval-gold">
+                  Relato Narrativo de {char.name}
+                </label>
+                <textarea
+                  value={heroDescriptions[char.id] || ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setHeroDescriptions(prev => ({
+                      ...prev,
+                      [char.id]: val
+                    }));
+                  }}
+                  placeholder={`O que o herói ${char.name} registrou sobre este acontecimento...`}
+                  rows={3}
+                  className="medieval-input resize-none py-1.5"
+                  disabled={loading}
+                />
+              </div>
+            ))}
 
           {/* Etiquetas */}
           <div className="flex flex-col space-y-1">

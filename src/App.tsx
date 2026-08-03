@@ -2,6 +2,7 @@ import React from 'react';
 import { CampaignProvider, useCampaign } from './contexts/CampaignContext';
 import { RouterProvider, useRouter } from './contexts/RouterContext';
 import { SearchProvider } from './contexts/SearchContext';
+import { ConfirmationProvider } from './contexts/ConfirmationContext';
 import { AppLayout } from './components/layout/AppLayout';
 import { CampaignSetup } from './views/CampaignSetup';
 import { CampaignHome } from './views/CampaignHome';
@@ -58,13 +59,15 @@ const AppContent: React.FC = () => {
 
 function App() {
   return (
-    <SearchProvider>
-      <CampaignProvider>
-        <RouterProvider>
-          <AppContent />
-        </RouterProvider>
-      </CampaignProvider>
-    </SearchProvider>
+    <ConfirmationProvider>
+      <SearchProvider>
+        <CampaignProvider>
+          <RouterProvider>
+            <AppContent />
+          </RouterProvider>
+        </CampaignProvider>
+      </SearchProvider>
+    </ConfirmationProvider>
   );
 }
 

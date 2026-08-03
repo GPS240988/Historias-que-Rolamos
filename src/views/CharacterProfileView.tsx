@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { useRouter } from '../contexts/RouterContext';
 import { useMediaUrl } from '../hooks/useMediaUrl';
 import { CharacterModal } from '../components/character/CharacterModal';
+import type { CharacterEvolution } from '../types';
 import {
   Shield,
   Heart,
@@ -12,7 +13,11 @@ import {
   TrendingUp,
   FileText,
   Star,
-  Edit3
+  Edit3,
+  MessageSquare,
+  BookOpen,
+  X,
+  Search
 } from 'lucide-react';
 
 interface CharacterProfileViewProps {
@@ -23,8 +28,19 @@ export const CharacterProfileView: React.FC<CharacterProfileViewProps> = ({ id }
   const { navigate } = useRouter();
   const [editModalOpen, setEditModalOpen] = useState(false);
 
+  // ── Evolution adventure and text filters ───────────────────────────────────
+  const [filterMemoryId, setFilterMemoryId] = useState('');
+  const [filterText, setFilterText] = useState('');
+  const [visibleCount, setVisibleCount] = useState(5);
+
   const character = useLiveQuery(() => db.characters.get(id), [id]);
   const avatarUrl = useMediaUrl(character?.imageId);
+
+  // All campaign memories (for resolving memoryId → title on evolutions)
+  const allMemories = useLiveQuery(async () => {
+    if (!character?.campaignId) return [];
+    return db.memories.where('campaignId').equals(character.campaignId).toArray();
+  }, [character?.campaignId]);
 
   // Compile narrative timeline of memories + level changes
   const timeline = useLiveQuery(async () => {
@@ -47,6 +63,37 @@ export const CharacterProfileView: React.FC<CharacterProfileViewProps> = ({ id }
     // Sort chronologically by eventDate
     return events.sort((a, b) => a.memory.eventDate.localeCompare(b.memory.eventDate));
   }, [id]);
+
+  // Filtered + sorted evolutions (newest first, adventure & text match)
+  const filteredEvolutions = useMemo<CharacterEvolution[]>(() => {
+    if (!character?.evolutions) return [];
+    let list = [...character.evolutions];
+
+    if (filterMemoryId) {
+      list = list.filter(e => e.memoryId === filterMemoryId);
+    }
+    if (filterText.trim()) {
+      const query = filterText.toLowerCase().trim();
+      list = list.filter(e => e.comment.toLowerCase().includes(query));
+    }
+
+    // Descending order
+    return list.sort((a, b) => b.date.localeCompare(a.date));
+  }, [character?.evolutions, filterMemoryId, filterText]);
+
+  // Slice to visible count for lazy loading
+  const visibleEvolutions = filteredEvolutions.slice(0, visibleCount);
+  const hasMore = filteredEvolutions.length > visibleCount;
+
+  const memoryMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (allMemories) {
+      allMemories.forEach(m => { map[m.id] = m.title; });
+    }
+    return map;
+  }, [allMemories]);
+
+
 
   if (character === undefined) {
     return (
@@ -104,7 +151,7 @@ export const CharacterProfileView: React.FC<CharacterProfileViewProps> = ({ id }
             )}
           </div>
 
-          {/* Character Details & Column Metrics Card (inspired by reference profile layout) */}
+          {/* Character Details & Column Metrics Card */}
           <div className="flex-1 p-6 flex flex-col justify-between space-y-6">
             <div>
               <span className="text-[10px] font-medieval tracking-widest text-medieval-gold uppercase bg-medieval-gold/10 border border-medieval-gold/20 px-2.5 py-0.5 rounded-sm inline-block">
@@ -120,7 +167,7 @@ export const CharacterProfileView: React.FC<CharacterProfileViewProps> = ({ id }
               )}
             </div>
 
-            {/* Core Statistics Block (columns style matching reference metrics card) */}
+            {/* Core Statistics Block */}
             <div className="grimoire-card py-4 px-2 grid grid-cols-3 gap-1 text-center divide-x divide-medieval-gold/10 bg-medieval-stone/30">
               <div>
                 <div className="flex justify-center text-medieval-gold mb-0.5">
@@ -193,6 +240,138 @@ export const CharacterProfileView: React.FC<CharacterProfileViewProps> = ({ id }
                 <p className="text-xs text-red-100/70 leading-relaxed italic">
                   {character.notes}
                 </p>
+              </div>
+            )}
+          </div>
+
+          {/* ── Evolutions & Comments Section ── */}
+          <div className="grimoire-card p-6 md:p-8 space-y-4">
+            <div className="flex items-center justify-between border-b border-medieval-gold/10 pb-1.5">
+              <h3 className="text-sm font-medieval text-medieval-gold uppercase tracking-widest flex items-center space-x-1.5">
+                <MessageSquare className="w-4 h-4" />
+                <span>Evolução & Comentários</span>
+                <span className="text-[9px] bg-medieval-gold/15 border border-medieval-gold/25 text-medieval-gold rounded-full px-1.5 py-0.5 font-serif ml-1">
+                  {character.evolutions?.length ?? 0}
+                </span>
+              </h3>
+            </div>
+
+            {/* Modern Search and Filter Panel */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 p-3.5 bg-medieval-stone/15 border border-medieval-gold/15 rounded-lg shadow-sm transition-all">
+              {/* Search input */}
+              <div className="md:col-span-7 relative">
+                <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+                  <Search className="w-3.5 h-3.5 text-medieval-gold/50" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Pesquisar comentários por palavra-chave..."
+                  value={filterText}
+                  onChange={e => setFilterText(e.target.value)}
+                  className="medieval-input w-full pl-8 pr-7 py-1 h-8 text-xs font-serif"
+                />
+                {filterText && (
+                  <button
+                    onClick={() => setFilterText('')}
+                    className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-medieval-silver/40 hover:text-medieval-wine transition-colors"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+
+              {/* Adventure Filter Group */}
+              <div className="md:col-span-5 flex flex-wrap items-center gap-2 justify-start md:justify-end">
+                <div className="flex items-center space-x-1.5 flex-1 min-w-0">
+                  <BookOpen className="w-3.5 h-3.5 text-medieval-gold/50 flex-shrink-0" />
+                  <select
+                    value={filterMemoryId}
+                    onChange={e => setFilterMemoryId(e.target.value)}
+                    className="medieval-input py-1 px-2 text-[10px] h-8 bg-medieval-charcoal/40 flex-1 min-w-0"
+                    title="Filtrar por aventura"
+                  >
+                    <option value="">Todas as aventuras</option>
+                    {allMemories?.map(m => (
+                      <option key={m.id} value={m.id}>
+                        {m.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {(filterMemoryId || filterText) && (
+                  <button
+                    type="button"
+                    onClick={() => { setFilterMemoryId(''); setFilterText(''); }}
+                    className="btn-stone h-8 px-2.5 text-[10px] flex items-center space-x-1 border border-medieval-wine/20 text-medieval-wine/80 hover:text-medieval-wine hover:border-medieval-wine/40 bg-medieval-wine/5 rounded hover:bg-medieval-wine/10 transition-all cursor-pointer flex-shrink-0"
+                    title="Limpar todos os filtros"
+                  >
+                    <X className="w-3 h-3" />
+                    <span>Limpar</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Evolution list */}
+            {filteredEvolutions.length === 0 ? (
+              <div className="text-center py-6 text-xs text-medieval-silver/40 italic">
+                Nenhum registro encontrado com os filtros atuais.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {visibleEvolutions.map((evo, idx) => {
+                  const memTitle = evo.memoryId ? memoryMap[evo.memoryId] : null;
+                  return (
+                    <div
+                      key={evo.id}
+                      className="relative pl-4 border-l-2 border-medieval-gold/20 hover:border-medieval-gold/50 transition-colors space-y-1 py-1"
+                      style={{ animationDelay: `${idx * 40}ms` }}
+                    >
+                      {/* Dot */}
+                      <div className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-medieval-charcoal border border-medieval-gold/50" />
+
+                      <div className="flex items-center flex-wrap gap-2">
+                        <span className="text-[9px] font-medieval text-medieval-gold bg-medieval-gold/10 border border-medieval-gold/20 px-1.5 py-0.5 rounded">
+                          {new Date(evo.date + 'T00:00:00').toLocaleDateString('pt-BR')}
+                        </span>
+                        {evo.author && (
+                          <span className="text-[9px] font-medieval font-bold text-medieval-brightGold bg-medieval-gold/5 border border-medieval-gold/15 px-1.5 py-0.5 rounded">
+                            {evo.author}
+                          </span>
+                        )}
+                        {memTitle && (
+                          <span className="text-[9px] font-serif italic text-medieval-silver/60 flex items-center space-x-1">
+                            <BookOpen className="w-2.5 h-2.5 text-medieval-gold/40" />
+                            <span>{memTitle}</span>
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-medieval-parchment/85 leading-relaxed whitespace-pre-line">
+                        {evo.comment}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {(filterMemoryId || filterText) && filteredEvolutions.length < (character.evolutions?.length ?? 0) && (
+              <p className="text-[10px] text-medieval-silver/40 text-center italic">
+                Mostrando {filteredEvolutions.length} de {character.evolutions?.length} registros
+              </p>
+            )}
+
+            {/* Load more button */}
+            {hasMore && (
+              <div className="text-center pt-2">
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount(prev => prev + 5)}
+                  className="btn-stone py-1.5 px-4 text-[10px] text-medieval-gold hover:text-medieval-brightGold transition-colors"
+                >
+                  Carregar mais ({filteredEvolutions.length - visibleCount} restantes)
+                </button>
               </div>
             )}
           </div>

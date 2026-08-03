@@ -7,6 +7,7 @@ import { useCampaign } from '../contexts/CampaignContext';
 import { useMediaUrl } from '../hooks/useMediaUrl';
 import { MemoryModal } from '../components/memory/MemoryModal';
 import { MediaService } from '../services/media';
+import { useConfirmation } from '../contexts/ConfirmationContext';
 import {
   Plus,
   Tag,
@@ -16,7 +17,8 @@ import {
   Edit3,
   Filter,
   ArrowUpDown,
-  BookOpen
+  BookOpen,
+  MessageSquare
 } from 'lucide-react';
 import type { Memory } from '../types';
 
@@ -35,7 +37,6 @@ const MEMORY_TYPES = [
   "Momento Lendário"
 ];
 
-// Helper to determine badge colors based on category/type
 export const getCategoryColorClass = (type: string) => {
   switch (type) {
     case 'Batalha':
@@ -69,19 +70,16 @@ export const TimelineView: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedMemory, setSelectedMemory] = useState<Memory | undefined>(undefined);
 
-  // Estado dos Filtros
   const [filterChar, setFilterChar] = useState<string>('');
   const [filterCategory, setFilterCategory] = useState<string>('');
   const [filterTag, setFilterTag] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [showFilters, setShowFilters] = useState(false);
 
-  // Queries
-  const allCharacters = useLiveQuery(() => 
+  const allCharacters = useLiveQuery(() =>
     campaign ? db.characters.where('campaignId').equals(campaign.id).toArray() : []
-  , [campaign?.id]) || [];
+    , [campaign?.id]) || [];
 
-  // Agrega etiquetas únicas de todas as memórias
   const allTags = useLiveQuery(async () => {
     if (!campaign) return [];
     const mems = await db.memories.where('campaignId').equals(campaign.id).toArray();
@@ -90,27 +88,22 @@ export const TimelineView: React.FC = () => {
     return Array.from(tags);
   }, [campaign?.id]) || [];
 
-  // Consulta memórias, reativo à busca + filtros
   const memories = useLiveQuery(async () => {
     if (!campaign) return [];
     let list = await db.memories.where('campaignId').equals(campaign.id).toArray();
 
-    // 1. Filtro de Personagem
     if (filterChar) {
       list = list.filter(m => m.characterIds.includes(filterChar));
     }
 
-    // 2. Filtro de Categoria
     if (filterCategory) {
       list = list.filter(m => m.type === filterCategory);
     }
 
-    // 3. Filtro de Etiqueta
     if (filterTag) {
       list = list.filter(m => m.tags.includes(filterTag));
     }
 
-    // 4. Global Search query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       list = list.filter(m =>
@@ -120,7 +113,6 @@ export const TimelineView: React.FC = () => {
       );
     }
 
-    // Sort Order
     return list.sort((a, b) => {
       const compare = a.eventDate.localeCompare(b.eventDate);
       return sortOrder === 'asc' ? compare : -compare;
@@ -138,9 +130,20 @@ export const TimelineView: React.FC = () => {
     setModalOpen(true);
   };
 
+  const { confirm } = useConfirmation();
+
   const handleDelete = async (memory: Memory, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (window.confirm(`Apagar memória "${memory.title}"? Isso removerá o registro e suas imagens vinculadas.`)) {
+    
+    const isConfirmed = await confirm({
+      title: 'Excluir Memória',
+      message: `Apagar memória "${memory.title}"? Isso removerá o registro e suas imagens vinculadas permanentemente.`,
+      confirmLabel: 'Excluir',
+      cancelLabel: 'Manter',
+      isDestructive: true
+    });
+
+    if (isConfirmed) {
       try {
         if (memory.imageId) {
           await MediaService.deleteMedia(memory.imageId);
@@ -167,7 +170,6 @@ export const TimelineView: React.FC = () => {
   return (
     <div className="space-y-6 animate-fade-in font-serif">
 
-      {/* Title & Actions */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-medieval-gold/15 pb-4 space-y-3 sm:space-y-0">
         <div>
           <h2 className="text-lg sm:text-xl font-medieval text-medieval-gold uppercase tracking-wider flex items-center space-x-2">
@@ -213,12 +215,10 @@ export const TimelineView: React.FC = () => {
         </div>
       </div>
 
-      {/* Gaveta do Painel de Filtros */}
       {showFilters && (
         <div className="grimoire-card p-4 animate-fade-in text-xs overflow-hidden">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 min-w-0">
 
-            {/* Filtro de Categoria */}
             <div className="flex flex-col space-y-1 min-w-0">
               <label className="text-[10px] text-medieval-gold uppercase font-medieval">Categoria</label>
               <select
@@ -233,7 +233,6 @@ export const TimelineView: React.FC = () => {
               </select>
             </div>
 
-            {/* Filtro de Herói */}
             <div className="flex flex-col space-y-1 min-w-0">
               <label className="text-[10px] text-medieval-gold uppercase font-medieval">Herói</label>
               <select
@@ -248,7 +247,6 @@ export const TimelineView: React.FC = () => {
               </select>
             </div>
 
-            {/* Filtro de Etiqueta */}
             <div className="flex flex-col space-y-1 min-w-0">
               <label className="text-[10px] text-medieval-gold uppercase font-medieval">Etiqueta</label>
               <select
@@ -264,7 +262,6 @@ export const TimelineView: React.FC = () => {
             </div>
           </div>
 
-          {/* Botão Limpar Filtros */}
           {hasActiveFilters && (
             <div className="mt-3 pt-3 border-t border-medieval-gold/10 text-right">
               <button
@@ -278,7 +275,6 @@ export const TimelineView: React.FC = () => {
         </div>
       )}
 
-      {/* Cards List */}
       {memories === undefined ? (
         <div className="text-center py-12 font-medieval text-medieval-gold text-sm animate-pulse">
           Consultando Pergaminhos do Passado...
@@ -308,7 +304,6 @@ export const TimelineView: React.FC = () => {
         </div>
       )}
 
-      {/* Memory Form Modal */}
       <MemoryModal
         isOpen={modalOpen}
         onClose={() => {
@@ -321,7 +316,6 @@ export const TimelineView: React.FC = () => {
   );
 };
 
-// Internal timeline list item component
 interface MemoryCardProps {
   memory: Memory;
   onEdit: (e: React.MouseEvent) => void;
@@ -332,7 +326,6 @@ const MemoryCard: React.FC<MemoryCardProps> = ({ memory, onEdit, onDelete }) => 
   const { navigate } = useRouter();
   const imageUrl = useMediaUrl(memory.imageId);
 
-  // Load participating character profiles in this memory
   const characters = useLiveQuery(async () => {
     const list = [];
     for (const charId of memory.characterIds) {
@@ -342,10 +335,11 @@ const MemoryCard: React.FC<MemoryCardProps> = ({ memory, onEdit, onDelete }) => 
     return list;
   }, [memory.characterIds]);
 
-  // Load linked photos for this memory
   const linkedPhotos = useLiveQuery(() =>
     db.media.where('campaignId').equals(memory.campaignId).filter(m => m.relatedMemoryId === memory.id).toArray()
-  , [memory.id, memory.campaignId]) || [];
+    , [memory.id, memory.campaignId]) || [];
+
+  const comments = useLiveQuery(() => db.memories.get(memory.id).then(m => m?.comments || []), [memory.id]) || [];
 
   return (
     <div
@@ -363,7 +357,6 @@ const MemoryCard: React.FC<MemoryCardProps> = ({ memory, onEdit, onDelete }) => 
           </span>
         </div>
 
-        {/* Controls */}
         <div className="flex items-center space-x-1" onClick={(e) => e.stopPropagation()}>
           <button
             onClick={onEdit}
@@ -399,7 +392,6 @@ const MemoryCard: React.FC<MemoryCardProps> = ({ memory, onEdit, onDelete }) => 
         </div>
       </div>
 
-      {/* Miniaturas de Fotos Vinculadas na Timeline */}
       {linkedPhotos.length > 0 && (
         <div className="flex items-center space-x-2 pt-2 overflow-x-auto scrollbar-none" onClick={e => e.stopPropagation()}>
           {linkedPhotos.map(photo => (
@@ -408,9 +400,7 @@ const MemoryCard: React.FC<MemoryCardProps> = ({ memory, onEdit, onDelete }) => 
         </div>
       )}
 
-      {/* Rodapé detalhando Etiquetas e heróis vinculados */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between border-t border-medieval-gold/5 pt-3 text-[11px] font-serif gap-3">
-        {/* Linked Characters */}
         <div className="flex items-center space-x-1.5 flex-wrap">
           <Users className="w-3.5 h-3.5 text-medieval-gold flex-shrink-0" />
           {characters && characters.length > 0 ? (
@@ -433,34 +423,41 @@ const MemoryCard: React.FC<MemoryCardProps> = ({ memory, onEdit, onDelete }) => 
           )}
         </div>
 
-        {/* Lista de Etiquetas */}
-        {memory.tags.length > 0 && (
-          <div className="flex items-center space-x-1 flex-wrap">
-            <Tag className="w-3 h-3 text-medieval-silver/70 flex-shrink-0" />
-            <div className="flex flex-wrap gap-1">
-              {memory.tags.map(t => (
-                <span
-                  key={t}
-                  className="text-[9px] text-medieval-silver bg-medieval-stone px-1.5 py-0.5 rounded-sm font-serif border border-medieval-gold/5 mt-1 leading-none"
-                >
-                  {t}
-                </span>
-              ))}
+        <div className="flex items-center space-x-3 flex-wrap">
+          {comments.length > 0 && (
+            <span className="text-[11px] text-medieval-silver/80 flex items-center space-x-1">
+              <MessageSquare className="w-3.5 h-3.5 text-medieval-gold/70" />
+              <span>{comments.length}</span>
+            </span>
+          )}
+
+          {memory.tags.length > 0 && (
+            <div className="flex items-center space-x-1 flex-wrap">
+              <Tag className="w-3 h-3 text-medieval-silver/70 flex-shrink-0" />
+              <div className="flex flex-wrap gap-1">
+                {memory.tags.map(t => (
+                  <span
+                    key={t}
+                    className="text-[9px] text-medieval-silver bg-medieval-stone px-1.5 py-0.5 rounded-sm font-serif border border-medieval-gold/5 mt-1 leading-none"
+                  >
+                    {t}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
     </div>
   );
 };
 
-// Thumbnail subcomponent for cards on timeline
 const MemoryCardPhotoThumb: React.FC<{ photoId: string; memoryId: string }> = ({ photoId, memoryId }) => {
-  const url = useMediaUrl(photoId, true); // load thumbnail
+  const url = useMediaUrl(photoId, true);
   const { navigate } = useRouter();
   return (
-    <div 
+    <div
       onClick={() => navigate({ type: 'memory-detail', id: memoryId })}
       className="w-10 h-10 rounded border border-medieval-gold/15 overflow-hidden flex-shrink-0 bg-medieval-charcoal cursor-pointer hover:border-medieval-gold transition-colors"
     >

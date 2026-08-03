@@ -31,7 +31,12 @@ export const CampaignHome: React.FC = () => {
   }, [campaign.id]);
 
   const mainCharacters = useLiveQuery(async () => {
-    return await db.characters.where('campaignId').equals(campaign.id).limit(4).toArray();
+    return await db.characters
+      .where('campaignId')
+      .equals(campaign.id)
+      .filter(char => char.characterType !== 'ally')
+      .limit(4)
+      .toArray();
   }, [campaign.id]);
 
   // Calculate campaign duration
@@ -194,7 +199,7 @@ export const CampaignHome: React.FC = () => {
                 onClick={() => navigate({ type: 'characters' })}
                 className="block mx-auto mt-4 btn-stone py-1 px-3 text-xs"
               >
-                Registrar Herói
+                Registrar Herói/Aliado
               </button>
             </div>
           )}

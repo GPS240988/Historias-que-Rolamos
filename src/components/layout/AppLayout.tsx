@@ -53,7 +53,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showSearch = tru
     const allToks = await db.tokens.where('campaignId').equals(campaign.id).toArray();
     const toks = allToks.filter(t =>
       t.name.toLowerCase().includes(q) ||
-      t.notes.toLowerCase().includes(q)
+      (t.notes || '').toLowerCase().includes(q)
     ).slice(0, 3);
 
     return { characters: chars, memories: mems, tokens: toks };

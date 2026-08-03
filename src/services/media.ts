@@ -201,7 +201,6 @@ export const MediaService = {
         const dims = await getImageDimensions(file);
         dimensions = dims;
       } catch {
-        // Some files might fail dimensions, keep defaults
         dimensions = { width: 0, height: 0 };
       }
 
@@ -232,7 +231,7 @@ export const MediaService = {
       width: dimensions.width,
       height: dimensions.height,
       blob: file, // Keep original
-      thumbnailBlob,
+      thumbnail: thumbnailBlob,
       isGallery,
       createdAt: new Date().toISOString()
     };
@@ -259,7 +258,7 @@ export const MediaService = {
   async getThumbnailUrl(mediaId: string): Promise<string | null> {
     const record = await db.media.get(mediaId);
     if (!record) return null;
-    return URL.createObjectURL(record.thumbnailBlob);
+    return URL.createObjectURL(record.thumbnail || record.blob);
   },
 
   /**

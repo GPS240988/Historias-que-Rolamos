@@ -7,6 +7,7 @@ import { useCampaign } from '../contexts/CampaignContext';
 import { useMediaUrl } from '../hooks/useMediaUrl';
 import { CharacterModal } from '../components/character/CharacterModal';
 import { MediaService } from '../services/media';
+import { useConfirmation } from '../contexts/ConfirmationContext';
 import {
   Plus,
   Trash2,
@@ -38,6 +39,10 @@ export const CharactersView: React.FC = () => {
     );
   }, [searchQuery, campaign?.id]);
 
+  // Separate heroes and allies (default to 'hero' if not set for backwards compatibility)
+  const heroes = characters?.filter(char => char.characterType !== 'ally') || [];
+  const allies = characters?.filter(char => char.characterType === 'ally') || [];
+
   const handleEdit = (char: Character, e: React.MouseEvent) => {
     e.stopPropagation();
     setSelectedChar(char);
@@ -49,9 +54,20 @@ export const CharactersView: React.FC = () => {
     setModalOpen(true);
   };
 
+  const { confirm } = useConfirmation();
+
   const handleDelete = async (char: Character, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (window.confirm(`Tem certeza que deseja apagar o herói "${char.name}"? Isso removerá o dossiê permanentemente.`)) {
+    
+    const isConfirmed = await confirm({
+      title: 'Excluir Dossiê',
+      message: `Tem certeza que deseja apagar o herói "${char.name}"? Isso removerá o dossiê permanentemente.`,
+      confirmLabel: 'Excluir',
+      cancelLabel: 'Manter',
+      isDestructive: true
+    });
+
+    if (isConfirmed) {
       try {
         // Clean up media file if exists
         if (char.imageId) {
@@ -87,7 +103,7 @@ export const CharactersView: React.FC = () => {
           className="btn-gold py-1.5 px-3 text-xs flex items-center space-x-1.5 w-full sm:w-auto justify-center"
         >
           <Plus className="w-3.5 h-3.5" />
-          <span>Registrar Herói</span>
+          <span>Registrar Herói/Aliado</span>
         </button>
       </div>
 
@@ -107,19 +123,48 @@ export const CharactersView: React.FC = () => {
             onClick={handleCreate}
             className="block mx-auto mt-6 btn-gold py-1.5 px-4 text-xs"
           >
-            Adicionar Herói
+            Adicionar Herói/Aliado
           </button>
         </div>
       ) : (
-        <div className="flex flex-col space-y-3">
-          {characters.map((char) => (
-            <CharacterCard
-              key={char.id}
-              character={char}
-              onEdit={(e) => handleEdit(char, e)}
-              onDelete={(e) => handleDelete(char, e)}
-            />
-          ))}
+        <div className="flex flex-col space-y-6">
+          {heroes.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2 border-b border-medieval-gold/20 pb-2">
+                <div className="w-2 h-2 rounded-full bg-medieval-brightGold shadow-[0_0_8px_rgba(212,175,55,0.6)]"></div>
+                <h3 className="text-xs font-medieval text-medieval-gold uppercase tracking-widest">
+                  Heróis ({heroes.length})
+                </h3>
+              </div>
+              {heroes.map((char) => (
+                <CharacterCard
+                  key={char.id}
+                  character={char}
+                  onEdit={(e) => handleEdit(char, e)}
+                  onDelete={(e) => handleDelete(char, e)}
+                />
+              ))}
+            </div>
+          )}
+
+          {allies.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2 border-b border-medieval-silver/20 pb-2">
+                <div className="w-2 h-2 rounded-full bg-medieval-silver"></div>
+                <h3 className="text-xs font-medieval text-medieval-silver uppercase tracking-widest">
+                  Aliados ({allies.length})
+                </h3>
+              </div>
+              {allies.map((char) => (
+                <CharacterCard
+                  key={char.id}
+                  character={char}
+                  onEdit={(e) => handleEdit(char, e)}
+                  onDelete={(e) => handleDelete(char, e)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
