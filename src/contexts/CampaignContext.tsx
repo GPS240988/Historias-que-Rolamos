@@ -39,6 +39,22 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  // Sync state across browser tabs via storage events
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'activeCampaignId') {
+        setActiveCampaignIdState(e.newValue);
+      }
+      if (e.key === 'theme') {
+        const newTheme = e.newValue || 'grimoire';
+        setThemeState(newTheme);
+        document.documentElement.setAttribute('data-theme', newTheme);
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
   // Reactive query of all campaigns.
@@ -89,10 +105,18 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     campaign = campaigns.find(c => c.id === activeCampaignId) || null;
   }
 
-  if (!campaign && campaigns.length > 0 && activeCampaignId !== 'new') {
-    campaign = campaigns[0];
-    localStorage.setItem('activeCampaignId', campaign.id);
-  }
+  // Fix: if activeCampaignId is invalid (deleted campaign), fall back to first campaign
+  // and update localStorage. If no campaigns exist, clear the invalid ID.
+  useEffect(() => {
+    if (!campaign && campaigns.length > 0 && activeCampaignId !== 'new') {
+      const firstId = campaigns[0].id;
+      setActiveCampaignIdState(firstId);
+      localStorage.setItem('activeCampaignId', firstId);
+    }
+    if (!campaign && campaigns.length === 0 && activeCampaignId !== 'new') {
+      localStorage.removeItem('activeCampaignId');
+    }
+  }, [campaign, campaigns, activeCampaignId]);
 
   useEffect(() => {
     if (campaignsList !== undefined) {
