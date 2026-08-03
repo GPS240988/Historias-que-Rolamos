@@ -14,8 +14,7 @@ import {
   X,
   ChevronLeft,
   Shield,
-  FileText,
-  Sparkles
+  FileText
 } from 'lucide-react';
 
 interface AppLayoutProps {
