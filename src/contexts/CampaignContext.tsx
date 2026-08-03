@@ -21,7 +21,12 @@ const CampaignContext = createContext<CampaignContextType | undefined>(undefined
 
 export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [loading, setLoading] = useState(true);
-  const [theme, setThemeState] = useState<string>(() => localStorage.getItem('theme') || 'dark');
+  const [theme, setThemeState] = useState<string>(() => {
+    const saved = localStorage.getItem('theme');
+    // Map old 'dark' theme to new 'grimoire' theme
+    if (saved === 'dark') return 'grimoire';
+    return saved || 'grimoire';
+  });
   const [activeCampaignId, setActiveCampaignIdState] = useState<string | null>(
     () => localStorage.getItem('activeCampaignId')
   );

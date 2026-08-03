@@ -58,7 +58,7 @@ export const CharactersView: React.FC = () => {
 
   const handleDelete = async (char: Character, e: React.MouseEvent) => {
     e.stopPropagation();
-    
+
     const isConfirmed = await confirm({
       title: 'Excluir Dossiê',
       message: `Tem certeza que deseja apagar o herói "${char.name}"? Isso removerá o dossiê permanentemente.`,
@@ -100,7 +100,7 @@ export const CharactersView: React.FC = () => {
         </div>
         <button
           onClick={handleCreate}
-          className="btn-gold py-1.5 px-3 text-xs flex items-center space-x-1.5 w-full sm:w-auto justify-center"
+          className="btn-gold py-1.5 px-3 text-xs flex items-center space-x-1.5 w-full sm:w-auto justify-center transition-all duration-300"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>Registrar Herói/Aliado</span>
@@ -195,7 +195,7 @@ const CharacterCard: React.FC<CharacterCardProps> = ({ character, onEdit, onDele
   return (
     <div
       onClick={() => navigate({ type: 'character-profile', id: character.id })}
-      className="grimoire-card grimoire-card-hover cursor-pointer p-4 flex items-center justify-between group shadow-sm transition-all duration-200"
+      className="grimoire-card grimoire-card-hover cursor-pointer p-4 flex items-center justify-between group shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-elevated focus:outline-none focus:ring-2 focus:ring-medieval-gold/40"
     >
       <div className="flex items-center space-x-4 min-w-0">
 
@@ -240,14 +240,14 @@ const CharacterCard: React.FC<CharacterCardProps> = ({ character, onEdit, onDele
         <div className="flex space-x-1">
           <button
             onClick={onEdit}
-            className="p-1 rounded hover:bg-medieval-gold/10 text-medieval-silver hover:text-medieval-gold transition-colors duration-200"
+            className="p-1 rounded hover:bg-medieval-gold/10 text-medieval-silver hover:text-medieval-gold transition-all duration-300"
             title="Editar Dossiê"
           >
             <Edit3 className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={onDelete}
-            className="p-1 rounded hover:bg-medieval-wine/20 text-medieval-silver hover:text-medieval-wine transition-colors duration-200"
+            className="p-1 rounded hover:bg-medieval-wine/20 text-medieval-silver hover:text-medieval-wine transition-all duration-300"
             title="Excluir Dossiê"
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -257,7 +257,7 @@ const CharacterCard: React.FC<CharacterCardProps> = ({ character, onEdit, onDele
         {/* Right chevron indicating profile link */}
         <div
           onClick={() => navigate({ type: 'character-profile', id: character.id })}
-          className="text-medieval-gold/45 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-200 cursor-pointer"
+          className="text-medieval-gold/45 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-300 cursor-pointer"
         >
           <ChevronRight className="w-4 h-4" />
         </div>

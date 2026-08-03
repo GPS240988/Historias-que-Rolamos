@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useCampaign } from '../../contexts/CampaignContext';
 import { X, Calendar, PenTool, BookOpen, Image as ImageIcon } from 'lucide-react';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 
 interface EditCampaignModalProps {
   isOpen: boolean;
@@ -71,7 +72,7 @@ export const EditCampaignModal: React.FC<EditCampaignModalProps> = ({ isOpen, on
           </h3>
           <button
             onClick={onClose}
-            className="p-1 rounded hover:bg-medieval-stone text-medieval-silver hover:text-medieval-gold transition-colors duration-200"
+            className="p-1 rounded hover:bg-medieval-stone text-medieval-silver hover:text-medieval-gold transition-all duration-300"
           >
             <X className="w-5 h-5" />
           </button>
@@ -184,10 +185,17 @@ export const EditCampaignModal: React.FC<EditCampaignModalProps> = ({ isOpen, on
             </button>
             <button
               type="submit"
-              className="btn-gold py-1.5 px-4 text-xs"
+              className="btn-gold py-1.5 px-4 text-xs flex items-center space-x-2"
               disabled={loading}
             >
-              {loading ? 'Entalhando...' : 'Salvar Alterações'}
+              {loading ? (
+                <>
+                  <LoadingSpinner size="sm" />
+                  <span>Entalhando...</span>
+                </>
+              ) : (
+                <span>Salvar Alterações</span>
+              )}
             </button>
           </div>
 

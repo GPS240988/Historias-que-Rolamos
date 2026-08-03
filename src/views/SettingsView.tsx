@@ -209,7 +209,7 @@ export const SettingsView: React.FC = () => {
         </span>
         <div className="grimoire-card divide-y divide-medieval-gold/10 overflow-hidden">
           {campaigns.map(c => (
-            <div key={c.id} className="p-4 flex items-center justify-between gap-4 hover:bg-medieval-stone/10 transition-colors">
+            <div key={c.id} className="p-4 flex items-center justify-between gap-4 hover:bg-medieval-stone/10 transition-colors duration-300">
               <div className="min-w-0">
                 <div className="flex items-center space-x-2">
                   <span className="font-medieval text-sm font-bold text-medieval-brightGold truncate">{c.name}</span>
@@ -255,7 +255,7 @@ export const SettingsView: React.FC = () => {
                       message: `Grimório "${c.name}" excluído com sucesso.`,
                     });
                   }}
-                  className="p-1.5 rounded hover:bg-medieval-wine/25 text-medieval-silver hover:text-medieval-wine transition-colors cursor-pointer"
+                  className="p-1.5 rounded hover:bg-medieval-wine/25 text-medieval-silver hover:text-medieval-wine transition-colors duration-300 cursor-pointer"
                   title="Excluir Grimório"
                   disabled={loading}
                 >
@@ -281,44 +281,70 @@ export const SettingsView: React.FC = () => {
         <span className="block text-[10px] text-medieval-gold uppercase font-medieval tracking-widest pl-1">
           Aparência do Grimório
         </span>
-        <div className="grimoire-card p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grimoire-card p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <button
-            onClick={() => setTheme('dark')}
-            className={`p-3 rounded border transition-all duration-200 flex flex-col items-center space-y-2 ${theme === 'dark'
+            onClick={() => setTheme('grimoire')}
+            className={`p-3 rounded border transition-all duration-300 flex flex-col items-center space-y-2 ${theme === 'grimoire' || theme === 'dark'
               ? 'bg-medieval-gold/10 border-medieval-gold shadow-gold'
               : 'bg-medieval-charcoal/40 border-medieval-gold/10 hover:border-medieval-gold/30'
               }`}
           >
-            <div className="w-full h-12 bg-[#0f0f12] rounded border border-medieval-gold/20 flex items-center justify-center">
-              <div className="w-8 h-1 bg-[#c5a880] rounded-full" />
+            <div className="w-full h-12 bg-[#0A0A0C] rounded border border-[#C5A880]/20 flex items-center justify-center">
+              <div className="w-8 h-1 bg-[#C5A880] rounded-full" />
             </div>
-            <span className={`text-xs font-medieval ${theme === 'dark' ? 'text-medieval-brightGold' : 'text-medieval-silver'}`}>Escuro (Padrão)</span>
+            <span className={`text-xs font-medieval ${theme === 'grimoire' || theme === 'dark' ? 'text-medieval-brightGold' : 'text-medieval-silver'}`}>Grimoire Noir</span>
           </button>
 
           <button
             onClick={() => setTheme('parchment')}
-            className={`p-3 rounded border transition-all duration-200 flex flex-col items-center space-y-2 ${theme === 'parchment'
+            className={`p-3 rounded border transition-all duration-300 flex flex-col items-center space-y-2 ${theme === 'parchment'
               ? 'bg-[#8b7355]/10 border-[#8b7355] shadow-gold'
               : 'bg-white/5 border-medieval-gold/10 hover:border-medieval-gold/30'
               }`}
           >
-            <div className="w-full h-12 bg-[#f4f1ea] rounded border border-[#8b7355]/20 flex items-center justify-center">
-              <div className="w-8 h-1 bg-[#8b7355] rounded-full" />
+            <div className="w-full h-12 bg-[#F4F1EA] rounded border border-[#8B7355]/20 flex items-center justify-center">
+              <div className="w-8 h-1 bg-[#8B7355] rounded-full" />
             </div>
-            <span className={`text-xs font-medieval ${theme === 'parchment' ? 'text-[#8b7355]' : 'text-medieval-silver'}`}>Pergaminho</span>
+            <span className={`text-xs font-medieval ${theme === 'parchment' ? 'text-[#8b7355]' : 'text-medieval-silver'}`}>Parchment Scroll</span>
           </button>
 
           <button
             onClick={() => setTheme('emerald')}
-            className={`p-3 rounded border transition-all duration-200 flex flex-col items-center space-y-2 ${theme === 'emerald'
+            className={`p-3 rounded border transition-all duration-300 flex flex-col items-center space-y-2 ${theme === 'emerald'
               ? 'bg-[#10b981]/10 border-[#10b981] shadow-gold'
               : 'bg-emerald-950/20 border-medieval-gold/10 hover:border-medieval-gold/30'
               }`}
           >
-            <div className="w-full h-12 bg-[#06140c] rounded border border-[#4ade80]/20 flex items-center justify-center">
-              <div className="w-8 h-1 bg-[#4ade80] rounded-full" />
+            <div className="w-full h-12 bg-[#06140C] rounded border border-[#4ADE80]/20 flex items-center justify-center">
+              <div className="w-8 h-1 bg-[#4ADE80] rounded-full" />
             </div>
-            <span className={`text-xs font-medieval ${theme === 'emerald' ? 'text-[#4ade80]' : 'text-medieval-silver'}`}>Reino Esmeralda</span>
+            <span className={`text-xs font-medieval ${theme === 'emerald' ? 'text-[#4ade80]' : 'text-medieval-silver'}`}>Emerald Court</span>
+          </button>
+
+          <button
+            onClick={() => setTheme('crimson')}
+            className={`p-3 rounded border transition-all duration-300 flex flex-col items-center space-y-2 ${theme === 'crimson'
+              ? 'bg-[#C0392B]/10 border-[#C0392B] shadow-gold'
+              : 'bg-red-950/20 border-medieval-gold/10 hover:border-medieval-gold/30'
+              }`}
+          >
+            <div className="w-full h-12 bg-[#120A0A] rounded border border-[#C0392B]/20 flex items-center justify-center">
+              <div className="w-8 h-1 bg-[#C0392B] rounded-full" />
+            </div>
+            <span className={`text-xs font-medieval ${theme === 'crimson' ? 'text-[#E74C3C]' : 'text-medieval-silver'}`}>Crimson Throne</span>
+          </button>
+
+          <button
+            onClick={() => setTheme('frost')}
+            className={`p-3 rounded border transition-all duration-300 flex flex-col items-center space-y-2 ${theme === 'frost'
+              ? 'bg-[#7EB8E8]/10 border-[#7EB8E8] shadow-gold'
+              : 'bg-blue-950/20 border-medieval-gold/10 hover:border-medieval-gold/30'
+              }`}
+          >
+            <div className="w-full h-12 bg-[#0A0F1A] rounded border border-[#7EB8E8]/20 flex items-center justify-center">
+              <div className="w-8 h-1 bg-[#7EB8E8] rounded-full" />
+            </div>
+            <span className={`text-xs font-medieval ${theme === 'frost' ? 'text-[#A8D4F5]' : 'text-medieval-silver'}`}>Frostbound</span>
           </button>
         </div>
       </div>
@@ -377,7 +403,7 @@ export const SettingsView: React.FC = () => {
           <div className="grimoire-card overflow-hidden">
             <button
               onClick={handleSeedCoraçãoRubi}
-              className="w-full p-4 flex items-center justify-between hover:bg-medieval-stone/30 transition-all duration-200 text-left group cursor-pointer"
+              className="w-full p-4 flex items-center justify-between hover:bg-medieval-stone/30 transition-all duration-300 text-left group cursor-pointer"
               disabled={loading}
             >
               <div className="flex items-center space-x-4">
@@ -389,7 +415,7 @@ export const SettingsView: React.FC = () => {
                   <span className="text-xs text-medieval-silver font-serif">Preenche suas memórias com a história oficial completa (20 partes extraídas de T20-Coração Rubi.pdf).</span>
                 </div>
               </div>
-              <ChevronRight className="w-4 h-4 text-medieval-gold/40 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-200" />
+              <ChevronRight className="w-4 h-4 text-medieval-gold/40 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-300" />
             </button>
           </div>
         </div>
@@ -405,7 +431,7 @@ export const SettingsView: React.FC = () => {
           {/* 
           <button
             onClick={handleExportJSON}
-            className="w-full p-4 flex items-center justify-between hover:bg-medieval-stone/30 transition-all duration-200 text-left group"
+            className="w-full p-4 flex items-center justify-between hover:bg-medieval-stone/30 transition-all duration-300 text-left group"
             disabled={loading}
           >
             <div className="flex items-center space-x-4">
@@ -417,13 +443,13 @@ export const SettingsView: React.FC = () => {
                 <span className="text-xs text-medieval-silver">Backup de fichas de heróis, diários e relações sem mídias.</span>
               </div>
             </div>
-            <ChevronRight className="w-4 h-4 text-medieval-gold/40 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-200" />
+            <ChevronRight className="w-4 h-4 text-medieval-gold/40 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-300" />
           </button>
           */}
 
           <button
             onClick={handleExportZIP}
-            className="w-full p-4 flex items-center justify-between hover:bg-medieval-stone/30 transition-all duration-200 text-left group"
+            className="w-full p-4 flex items-center justify-between hover:bg-medieval-stone/30 transition-all duration-300 text-left group"
             disabled={loading}
           >
             <div className="flex items-center space-x-4">
@@ -435,7 +461,7 @@ export const SettingsView: React.FC = () => {
                 <span className="text-xs text-medieval-silver">Backup unificado contendo todas as imagens originais, tokens e base de dados.</span>
               </div>
             </div>
-            <ChevronRight className="w-4 h-4 text-medieval-gold/40 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-200" />
+            <ChevronRight className="w-4 h-4 text-medieval-gold/40 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-300" />
           </button>
 
         </div>
@@ -448,7 +474,7 @@ export const SettingsView: React.FC = () => {
         </span>
         <div className="grimoire-card overflow-hidden">
 
-          <label className="w-full p-4 flex items-center justify-between hover:bg-medieval-stone/30 transition-all duration-200 text-left group cursor-pointer">
+          <label className="w-full p-4 flex items-center justify-between hover:bg-medieval-stone/30 transition-all duration-300 text-left group cursor-pointer">
             <div className="flex items-center space-x-4">
               <div className="p-2 rounded bg-medieval-gold/10 text-medieval-gold flex-shrink-0">
                 <Upload className="w-5 h-5" />
@@ -458,7 +484,7 @@ export const SettingsView: React.FC = () => {
                 <span className="text-xs text-medieval-silver">Restaure sua mesa a partir de arquivos compactados (.zip) ou planilhas de dados (.json).</span>
               </div>
             </div>
-            <ChevronRight className="w-4 h-4 text-medieval-gold/40 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-200" />
+            <ChevronRight className="w-4 h-4 text-medieval-gold/40 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-300" />
             <input
               type="file"
               accept=".json,.zip"

@@ -60,14 +60,14 @@ export const CampaignHome: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       {/* Living Cover Hero Section */}
-      <div className="relative h-64 md:h-80 w-full border border-medieval-gold/30 shadow-gold group/banner">
+      <div className="stagger-item relative h-64 md:h-80 w-full border border-medieval-gold/30 shadow-gold group/banner spatial-card">
 
         {/* Edit Button */}
         <button
           onClick={() => setIsEditModalOpen(true)}
-          className="absolute top-4 right-4 p-2 rounded bg-medieval-stone/90 border border-medieval-gold/25 text-medieval-gold hover:border-medieval-gold hover:text-medieval-brightGold hover:scale-105 transition-all duration-200 shadow-gold z-20 md:opacity-0 md:group-hover/banner:opacity-100"
+          className="absolute top-4 right-4 p-2 rounded bg-medieval-stone/90 border border-medieval-gold/25 text-medieval-gold hover:border-medieval-gold hover:text-medieval-brightGold hover:scale-110 transition-all duration-300 shadow-gold z-20 md:opacity-0 md:group-hover/banner:opacity-100 focus:outline-none focus:ring-2 focus:ring-medieval-gold/40"
           title="Editar Campanha"
         >
           <Edit2 className="w-4 h-4" />
@@ -101,11 +101,11 @@ export const CampaignHome: React.FC = () => {
             {(campaign.description && campaign.description.length > 100) && (
               <button
                 onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-                className="text-xs text-medieval-gold font-medieval tracking-wider mt-1 hover:text-medieval-brightGold transition-colors duration-200 flex items-center space-x-1"
+                className="text-xs text-medieval-gold font-medieval tracking-wider mt-1 hover:text-medieval-brightGold transition-colors duration-300 flex items-center space-x-1"
               >
                 <span>{isDescriptionExpanded ? 'Ver Menos' : 'Ver Mais'}</span>
                 <svg
-                  className={`w-3 h-3 transition-transform duration-200 ${isDescriptionExpanded ? 'rotate-180' : ''}`}
+                  className={`w-3 h-3 transition-transform duration-300 ${isDescriptionExpanded ? 'rotate-180' : ''}`}
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -119,7 +119,7 @@ export const CampaignHome: React.FC = () => {
       </div>
 
       {/* The Journey So Far - Columns Metrics Card */}
-      <div className="space-y-4">
+      <div className="stagger-item space-y-4">
         <h3 className="text-xs font-medieval text-medieval-gold uppercase tracking-widest border-b border-medieval-gold/10 pb-1.5 flex items-center space-x-2">
           <Scroll className="w-4 h-4" />
           <span>A Jornada Até Aqui</span>
@@ -156,10 +156,10 @@ export const CampaignHome: React.FC = () => {
       </div>
 
       {/* Dashboard Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* Featured Memory Section */}
-        <section className="lg:col-span-2 space-y-4">
+        <section className="stagger-item lg:col-span-2 space-y-4">
           <h3 className="text-xs font-medieval text-medieval-gold uppercase tracking-widest border-b border-medieval-gold/10 pb-1.5 flex items-center space-x-2">
             <BookOpen className="w-4 h-4" />
             <span>Última Memória em Destaque</span>
@@ -181,7 +181,7 @@ export const CampaignHome: React.FC = () => {
         </section>
 
         {/* Campaign Heroes Section */}
-        <section className="space-y-4">
+        <section className="stagger-item space-y-4">
           <h3 className="text-xs font-medieval text-medieval-gold uppercase tracking-widest border-b border-medieval-gold/10 pb-1.5 flex items-center space-x-2">
             <Users className="w-4 h-4" />
             <span>Heróis Ativos</span>
@@ -225,7 +225,7 @@ const FeaturedMemoryCard: React.FC<{ memory: any }> = ({ memory }) => {
   return (
     <div
       onClick={() => navigate({ type: 'memory-detail', id: memory.id })}
-      className="grimoire-card grimoire-card-hover overflow-hidden cursor-pointer flex flex-col space-y-4 shadow-md"
+      className="grimoire-card grimoire-card-hover grimoire-card-elevated overflow-hidden cursor-pointer flex flex-col space-y-4 shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-elevated focus:outline-none focus:ring-2 focus:ring-medieval-gold/40"
     >
       {imageUrl && (
         <div className="w-full h-48 md:h-64 overflow-hidden border-b border-medieval-gold/15 relative">
@@ -242,7 +242,7 @@ const FeaturedMemoryCard: React.FC<{ memory: any }> = ({ memory }) => {
             {new Date(memory.eventDate).toLocaleDateString('pt-BR')}
           </span>
         </div>
-        <h4 className="text-xl md:text-2xl font-medieval font-bold text-medieval-brightGold hover:text-medieval-gold transition-colors duration-200">
+        <h4 className="text-xl md:text-2xl font-medieval font-bold text-medieval-brightGold hover:text-medieval-gold transition-colors duration-300">
           {memory.title}
         </h4>
         <p className="text-xs md:text-sm font-serif text-medieval-silver line-clamp-3 leading-relaxed">
@@ -266,7 +266,7 @@ const CharacterCardShortcut: React.FC<{ character: any }> = ({ character }) => {
   return (
     <div
       onClick={() => navigate({ type: 'character-profile', id: character.id })}
-      className="grimoire-card grimoire-card-hover p-3 flex items-center justify-between cursor-pointer group shadow-sm"
+      className="grimoire-card grimoire-card-hover p-3 flex items-center justify-between cursor-pointer group shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-elevated focus:outline-none focus:ring-2 focus:ring-medieval-gold/40 spatial-card"
     >
       <div className="flex items-center space-x-3 min-w-0">
         <div className="w-11 h-11 rounded-full border border-medieval-gold/30 overflow-hidden flex-shrink-0">
@@ -287,7 +287,7 @@ const CharacterCardShortcut: React.FC<{ character: any }> = ({ character }) => {
           </span>
         </div>
       </div>
-      <div className="text-medieval-gold/40 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-200">
+      <div className="text-medieval-gold/40 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-300">
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
         </svg>

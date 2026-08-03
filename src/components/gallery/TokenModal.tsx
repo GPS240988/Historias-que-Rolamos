@@ -6,6 +6,7 @@ import { MediaService } from '../../services/media';
 import { db } from '../../db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { X, PenTool, Users, Shield, Image as ImageIcon } from 'lucide-react';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 
 interface TokenModalProps {
   isOpen: boolean;
@@ -123,7 +124,7 @@ export const TokenModal: React.FC<TokenModalProps> = ({ isOpen, onClose, tokenTo
           </h3>
           <button
             onClick={onClose}
-            className="p-1 rounded hover:bg-medieval-stone text-medieval-silver hover:text-medieval-gold transition-colors duration-200"
+            className="p-1 rounded hover:bg-medieval-stone text-medieval-silver hover:text-medieval-gold transition-all duration-300"
           >
             <X className="w-5 h-5" />
           </button>
@@ -254,10 +255,17 @@ export const TokenModal: React.FC<TokenModalProps> = ({ isOpen, onClose, tokenTo
             </button>
             <button
               type="submit"
-              className="btn-gold py-1.5 px-4 text-xs"
+              className="btn-gold py-1.5 px-4 text-xs flex items-center space-x-2"
               disabled={loading}
             >
-              {loading ? 'Gravando...' : tokenToEdit ? 'Atualizar Token' : 'Salvar Token'}
+              {loading ? (
+                <>
+                  <LoadingSpinner size="sm" />
+                  <span>Gravando...</span>
+                </>
+              ) : (
+                <span>{tokenToEdit ? 'Atualizar Token' : 'Salvar Token'}</span>
+              )}
             </button>
           </div>
 

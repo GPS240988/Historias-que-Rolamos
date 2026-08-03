@@ -1,40 +1,88 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,900&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
+/* ==========================================
+   THEME SYSTEM - "Grimório Premium"
+   Baseado em: theme-factory + stitch-design-taste
+   ========================================== */
 
-
-:root {
-  /* Default: Grimoire (Dark) */
-  --color-medieval-charcoal: #0f0f12;
-  --color-medieval-stone: #1e1e24;
-  --color-medieval-gold: #c5a880;
-  --color-medieval-brightGold: #e5cda8;
-  --color-medieval-wine: #581c20;
-  --color-medieval-parchment: #e8e4dc;
-  --color-medieval-silver: #a3a099;
-  --color-medieval-accent: #c5a880;
+/* 1. GRIMOIRE NOIR (Dark - Padrão) */
+:root,
+[data-theme='grimoire'] {
+  --color-medieval-charcoal: #0A0A0C;
+  --color-medieval-stone: #141418;
+  --color-medieval-gold: #C5A880;
+  --color-medieval-brightGold: #E5CDA8;
+  --color-medieval-wine: #7B1F26;
+  --color-medieval-parchment: #E8E4DC;
+  --color-medieval-silver: #8A8A93;
+  --color-medieval-accent: #C5A880;
+  --color-medieval-border: rgba(197, 168, 128, 0.15);
 }
 
+/* 2. PARCHMENT SCROLL (Claro) */
 [data-theme='parchment'] {
-  --color-medieval-charcoal: #f4f1ea;
-  --color-medieval-stone: #e8e4dc;
-  --color-medieval-gold: #8b7355;
-  --color-medieval-brightGold: #5d4037;
-  --color-medieval-wine: #7b1f26;
-  --color-medieval-parchment: #2c2c2c;
-  --color-medieval-silver: #5d5d5d;
-  --color-medieval-accent: #8b7355;
+  --color-medieval-charcoal: #F4F1EA;
+  --color-medieval-stone: #E8E4DC;
+  --color-medieval-gold: #8B7355;
+  --color-medieval-brightGold: #5D4037;
+  --color-medieval-wine: #7B1F26;
+  --color-medieval-parchment: #2C2C2C;
+  --color-medieval-silver: #5D5D5D;
+  --color-medieval-accent: #8B7355;
+  --color-medieval-border: rgba(139, 115, 85, 0.2);
 }
 
+/* 3. EMERALD COURT (Dark - Verde) */
 [data-theme='emerald'] {
-  --color-medieval-charcoal: #06140c;
-  --color-medieval-stone: #0d2418;
-  --color-medieval-gold: #4ade80;
-  --color-medieval-brightGold: #bbf7d0;
-  --color-medieval-wine: #ef4444;
-  --color-medieval-parchment: #ecfdf5;
-  --color-medieval-silver: #94a3b8;
-  --color-medieval-accent: #10b981;
+  --color-medieval-charcoal: #06140C;
+  --color-medieval-stone: #0D2418;
+  --color-medieval-gold: #4ADE80;
+  --color-medieval-brightGold: #BBF7D0;
+  --color-medieval-wine: #EF4444;
+  --color-medieval-parchment: #ECFDF5;
+  --color-medieval-silver: #94A3B8;
+  --color-medieval-accent: #10B981;
+  --color-medieval-border: rgba(74, 222, 128, 0.15);
+}
+
+/* 4. CRIMSON THRONE (Dark - Vermelho) */
+[data-theme='crimson'] {
+  --color-medieval-charcoal: #120A0A;
+  --color-medieval-stone: #1E1212;
+  --color-medieval-gold: #C0392B;
+  --color-medieval-brightGold: #E74C3C;
+  --color-medieval-wine: #8B0000;
+  --color-medieval-parchment: #F5E8E8;
+  --color-medieval-silver: #A08A8A;
+  --color-medieval-accent: #C0392B;
+  --color-medieval-border: rgba(192, 57, 43, 0.2);
+}
+
+/* 5. FROSTBOUND (Dark - Azul) */
+[data-theme='frost'] {
+  --color-medieval-charcoal: #0A0F1A;
+  --color-medieval-stone: #141C2E;
+  --color-medieval-gold: #7EB8E8;
+  --color-medieval-brightGold: #A8D4F5;
+  --color-medieval-wine: #B03060;
+  --color-medieval-parchment: #E8F0F8;
+  --color-medieval-silver: #8A9BB5;
+  --color-medieval-accent: #7EB8E8;
+  --color-medieval-border: rgba(126, 184, 232, 0.15);
+}
+
+/* Backwards compatibility: old 'dark' theme maps to grimoire */
+[data-theme='dark'] {
+  --color-medieval-charcoal: #0A0A0C;
+  --color-medieval-stone: #141418;
+  --color-medieval-gold: #C5A880;
+  --color-medieval-brightGold: #E5CDA8;
+  --color-medieval-wine: #7B1F26;
+  --color-medieval-parchment: #E8E4DC;
+  --color-medieval-silver: #8A8A93;
+  --color-medieval-accent: #C5A880;
+  --color-medieval-border: rgba(197, 168, 128, 0.15);
 }
 
 @theme {
@@ -46,9 +94,12 @@
   --color-medieval-parchment: var(--color-medieval-parchment);
   --color-medieval-silver: var(--color-medieval-silver);
   --color-medieval-accent: var(--color-medieval-accent);
+  --color-medieval-border: var(--color-medieval-border);
 
-  --font-medieval: "Cinzel", Georgia, serif;
-  --font-sans: "Inter", system-ui, sans-serif;
+  /* Premium fonts (substituem Cinzel/Inter) */
+  --font-medieval: "Fraunces", Georgia, serif;
+  --font-sans: "Outfit", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
 
   --shadow-gold: 0 0 15px rgba(197, 168, 128, 0.15);
   --shadow-goldFocus: 0 0 25px rgba(197, 168, 128, 0.35);
@@ -113,18 +164,77 @@
 }
 
 @layer components {
+
+  /* ==========================================
+     Premium Grimoire Card (Antigravity Design)
+     ========================================== */
   .grimoire-card {
     background-color: color-mix(in srgb, var(--color-medieval-stone), transparent 20%);
-    border: 1px solid color-mix(in srgb, var(--color-medieval-gold), transparent 80%);
+    border: 1px solid var(--color-medieval-border);
     border-radius: 0.5rem;
-    box-shadow: var(--shadow-gold);
-    backdrop-filter: blur(4px);
-    transition: all 0.3s;
+    box-shadow:
+      var(--shadow-gold),
+      0 1px 3px rgba(0, 0, 0, 0.1),
+      0 4px 12px rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transition: all 0.3s ease-out;
+    position: relative;
+  }
+
+  /* Weightlessness: subtle inner glow + floating shadow */
+  .grimoire-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(to bottom,
+        rgba(255, 255, 255, 0.03) 0%,
+        rgba(255, 255, 255, 0) 40%);
+    opacity: 0;
+    transition: opacity 0.3s ease-out;
   }
 
   .grimoire-card-hover:hover {
     border-color: color-mix(in srgb, var(--color-medieval-gold), transparent 55%);
-    box-shadow: var(--shadow-goldFocus);
+    box-shadow:
+      var(--shadow-goldFocus),
+      0 4px 12px rgba(0, 0, 0, 0.15),
+      0 12px 32px rgba(0, 0, 0, 0.25);
+    transform: translateY(-2px);
+  }
+
+  .grimoire-card-hover:hover::before {
+    opacity: 1;
+  }
+
+  /* Elevated card variant for hero/dashboard elements */
+  .grimoire-card-elevated {
+    background-color: color-mix(in srgb, var(--color-medieval-stone), transparent 10%);
+    border: 1px solid color-mix(in srgb, var(--color-medieval-gold), transparent 70%);
+    border-radius: 0.625rem;
+    box-shadow:
+      var(--shadow-gold),
+      0 2px 8px rgba(0, 0, 0, 0.12),
+      0 8px 24px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: all 0.3s ease-out;
+  }
+
+  /* Glassmorphism: transparent background + strong blur */
+  .glass-panel {
+    background-color: color-mix(in srgb, var(--color-medieval-stone), transparent 45%);
+    border: 1px solid color-mix(in srgb, var(--color-medieval-gold), transparent 75%);
+    border-radius: 0.75rem;
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    box-shadow:
+      var(--shadow-gold),
+      0 1px 3px rgba(0, 0, 0, 0.08),
+      0 8px 24px rgba(0, 0, 0, 0.12);
+    transition: all 0.3s ease-out;
   }
 
   .btn-gold {
@@ -215,17 +325,17 @@
   }
 
   ::-webkit-scrollbar-track {
-    background: #0f0f12;
+    background: var(--color-medieval-charcoal);
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #1e1e24;
-    border: 1px solid #c5a880;
+    background: var(--color-medieval-stone);
+    border: 1px solid var(--color-medieval-gold);
     border-radius: 4px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #c5a880;
+    background: var(--color-medieval-gold);
   }
 }
 
@@ -239,7 +349,7 @@
 }
 
 .parchment-border {
-  border-image: linear-gradient(to right, #c5a880 0%, #1e1e24 50%, #c5a880 100%) 1;
+  border-image: linear-gradient(to right, var(--color-medieval-gold) 0%, var(--color-medieval-stone) 50%, var(--color-medieval-gold) 100%) 1;
 }
 
 .animate-fade-in {
@@ -248,4 +358,89 @@
 
 .animate-slide-up {
   animation: var(--animate-slide-up);
+}
+
+/* ==========================================
+   Staggered Entrances (Antigravity Design)
+   ========================================== */
+@keyframes staggerFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.stagger-item {
+  opacity: 0;
+  animation: staggerFadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.stagger-item:nth-child(1) {
+  animation-delay: 0.05s;
+}
+
+.stagger-item:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.stagger-item:nth-child(3) {
+  animation-delay: 0.15s;
+}
+
+.stagger-item:nth-child(4) {
+  animation-delay: 0.2s;
+}
+
+.stagger-item:nth-child(5) {
+  animation-delay: 0.25s;
+}
+
+.stagger-item:nth-child(6) {
+  animation-delay: 0.3s;
+}
+
+.stagger-item:nth-child(7) {
+  animation-delay: 0.35s;
+}
+
+.stagger-item:nth-child(8) {
+  animation-delay: 0.4s;
+}
+
+/* ==========================================
+   Spatial Depth (Antigravity Design)
+   ========================================== */
+.perspective-container {
+  perspective: 1200px;
+}
+
+.spatial-card {
+  transform-style: preserve-3d;
+  will-change: transform;
+  transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
+}
+
+.spatial-card:hover {
+  transform: translateY(-4px) rotateX(2deg) rotateY(0deg);
+}
+
+/* ==========================================
+   Reduced Motion Support (Accessibility)
+   ========================================== */
+@media (prefers-reduced-motion: reduce) {
+
+  .stagger-item,
+  .animate-fade-in,
+  .animate-slide-up,
+  .spatial-card {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    transition-duration: 0.01ms !important;
+  }
 }

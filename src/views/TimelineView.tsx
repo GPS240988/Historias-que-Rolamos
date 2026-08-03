@@ -134,7 +134,7 @@ export const TimelineView: React.FC = () => {
 
   const handleDelete = async (memory: Memory, e: React.MouseEvent) => {
     e.stopPropagation();
-    
+
     const isConfirmed = await confirm({
       title: 'Excluir Memória',
       message: `Apagar memória "${memory.title}"? Isso removerá o registro e suas imagens vinculadas permanentemente.`,
@@ -184,7 +184,7 @@ export const TimelineView: React.FC = () => {
         <div className="flex items-center space-x-2 w-full sm:w-auto">
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`btn-stone py-1.5 px-2.5 text-xs flex items-center space-x-1.5 ${hasActiveFilters ? 'border-medieval-gold text-medieval-brightGold bg-medieval-gold/5' : ''
+            className={`btn-stone py-1.5 px-2.5 text-xs flex items-center space-x-1.5 transition-all duration-300 ${hasActiveFilters ? 'border-medieval-gold text-medieval-brightGold bg-medieval-gold/5' : ''
               }`}
           >
             <Filter className="w-3.5 h-3.5" />
@@ -198,7 +198,7 @@ export const TimelineView: React.FC = () => {
 
           <button
             onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-            className="btn-stone py-1.5 px-2.5 text-xs flex items-center space-x-1.5"
+            className="btn-stone py-1.5 px-2.5 text-xs flex items-center space-x-1.5 transition-all duration-300"
             title={sortOrder === 'asc' ? 'Mais antigas primeiro' : 'Mais novas primeiro'}
           >
             <ArrowUpDown className="w-3.5 h-3.5" />
@@ -207,7 +207,7 @@ export const TimelineView: React.FC = () => {
 
           <button
             onClick={handleCreate}
-            className="btn-gold py-1.5 px-3 text-xs flex items-center space-x-1.5 flex-1 sm:flex-initial justify-center"
+            className="btn-gold py-1.5 px-3 text-xs flex items-center space-x-1.5 flex-1 sm:flex-initial justify-center transition-all duration-300"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Escrever Memória</span>
@@ -266,7 +266,7 @@ export const TimelineView: React.FC = () => {
             <div className="mt-3 pt-3 border-t border-medieval-gold/10 text-right">
               <button
                 onClick={clearFilters}
-                className="btn-stone py-1 px-3 text-[10px] uppercase font-medieval"
+                className="btn-stone py-1 px-3 text-[10px] uppercase font-medieval transition-all duration-300"
               >
                 Limpar Filtros
               </button>
@@ -292,14 +292,15 @@ export const TimelineView: React.FC = () => {
           )}
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-6 perspective-container">
           {memories.map((memory) => (
-            <MemoryCard
-              key={memory.id}
-              memory={memory}
-              onEdit={(e) => handleEdit(memory, e)}
-              onDelete={(e) => handleDelete(memory, e)}
-            />
+            <div className="stagger-item" key={memory.id}>
+              <MemoryCard
+                memory={memory}
+                onEdit={(e) => handleEdit(memory, e)}
+                onDelete={(e) => handleDelete(memory, e)}
+              />
+            </div>
           ))}
         </div>
       )}
@@ -344,7 +345,7 @@ const MemoryCard: React.FC<MemoryCardProps> = ({ memory, onEdit, onDelete }) => 
   return (
     <div
       onClick={() => navigate({ type: 'memory-detail', id: memory.id })}
-      className="grimoire-card grimoire-card-hover p-4 md:p-6 cursor-pointer space-y-4 relative overflow-hidden shadow-md"
+      className="grimoire-card grimoire-card-hover spatial-card p-4 md:p-6 cursor-pointer space-y-4 relative overflow-hidden shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-elevated focus:outline-none focus:ring-2 focus:ring-medieval-gold/40"
     >
       <div className="flex justify-between items-start gap-4">
         <div className="flex items-center space-x-2">
@@ -360,14 +361,14 @@ const MemoryCard: React.FC<MemoryCardProps> = ({ memory, onEdit, onDelete }) => 
         <div className="flex items-center space-x-1" onClick={(e) => e.stopPropagation()}>
           <button
             onClick={onEdit}
-            className="p-1 rounded hover:bg-medieval-gold/15 text-medieval-silver hover:text-medieval-gold transition-colors duration-200"
+            className="p-1 rounded hover:bg-medieval-gold/15 text-medieval-silver hover:text-medieval-gold transition-all duration-300"
             title="Editar Memória"
           >
             <Edit3 className="w-4 h-4" />
           </button>
           <button
             onClick={onDelete}
-            className="p-1 rounded hover:bg-medieval-wine/25 text-medieval-silver hover:text-medieval-wine transition-colors duration-200"
+            className="p-1 rounded hover:bg-medieval-wine/25 text-medieval-silver hover:text-medieval-wine transition-all duration-300"
             title="Excluir Memória"
           >
             <Trash2 className="w-4 h-4" />
@@ -383,7 +384,7 @@ const MemoryCard: React.FC<MemoryCardProps> = ({ memory, onEdit, onDelete }) => 
         )}
 
         <div className="flex-1 space-y-2 min-w-0">
-          <h3 className="text-lg font-medieval font-bold text-medieval-brightGold group-hover:text-medieval-gold transition-colors duration-200 break-words whitespace-normal leading-tight">
+          <h3 className="text-lg font-medieval font-bold text-medieval-brightGold group-hover:text-medieval-gold transition-colors duration-300 break-words whitespace-normal leading-tight">
             {memory.title}
           </h3>
           <p className="text-xs font-serif text-medieval-silver line-clamp-3 leading-relaxed text-justify">
@@ -459,7 +460,7 @@ const MemoryCardPhotoThumb: React.FC<{ photoId: string; memoryId: string }> = ({
   return (
     <div
       onClick={() => navigate({ type: 'memory-detail', id: memoryId })}
-      className="w-10 h-10 rounded border border-medieval-gold/15 overflow-hidden flex-shrink-0 bg-medieval-charcoal cursor-pointer hover:border-medieval-gold transition-colors"
+      className="w-10 h-10 rounded border border-medieval-gold/15 overflow-hidden flex-shrink-0 bg-medieval-charcoal cursor-pointer hover:border-medieval-gold transition-all duration-300"
     >
       {url ? (
         <img src={url} alt="Foto vinculada" className="w-full h-full object-cover" />

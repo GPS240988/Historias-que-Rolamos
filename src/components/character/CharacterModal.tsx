@@ -6,6 +6,7 @@ import { MediaService } from '../../services/media';
 import { db } from '../../db';
 import { X, User, Image as ImageIcon, FileText, Download, Plus, MessageSquare, ScrollText, Trash2, BookOpen, Edit3 } from 'lucide-react';
 import { useConfirmation } from '../../contexts/ConfirmationContext';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 
 interface CharacterModalProps {
   isOpen: boolean;
@@ -419,7 +420,7 @@ export const CharacterModal: React.FC<CharacterModalProps> = ({ isOpen, onClose,
           <h3 className="text-xl font-medieval text-medieval-gold uppercase tracking-wider">
             {isEditing ? 'Editar Dossiê de Herói' : 'Registrar Novo Herói'}
           </h3>
-          <button onClick={onClose} className="p-1 rounded hover:bg-medieval-stone text-medieval-silver hover:text-medieval-gold transition-colors duration-200">
+          <button onClick={onClose} className="p-1 rounded hover:bg-medieval-stone text-medieval-silver hover:text-medieval-gold transition-all duration-300">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -627,8 +628,15 @@ export const CharacterModal: React.FC<CharacterModalProps> = ({ isOpen, onClose,
 
             <div className="flex justify-end space-x-3 pt-3 border-t border-medieval-gold/15 mt-4 shrink-0">
               <button type="button" onClick={onClose} className="btn-stone py-1.5 px-4 text-xs" disabled={loading}>Cancelar</button>
-              <button type="submit" className="btn-gold py-1.5 px-4 text-xs" disabled={loading}>
-                {loading ? 'Gravando nos Pergaminhos...' : isEditing ? 'Atualizar Dossiê' : 'Registrar Herói'}
+              <button type="submit" className="btn-gold py-1.5 px-4 text-xs flex items-center space-x-2" disabled={loading}>
+                {loading ? (
+                  <>
+                    <LoadingSpinner size="sm" />
+                    <span>Gravando nos Pergaminhos...</span>
+                  </>
+                ) : (
+                  <span>{isEditing ? 'Atualizar Dossiê' : 'Registrar Herói'}</span>
+                )}
               </button>
             </div>
 

@@ -8,6 +8,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { X, Calendar, Edit3, Tag, Users, Plus, Image as ImageIcon } from 'lucide-react';
 import { useMediaUrl } from '../../hooks/useMediaUrl';
 import { useConfirmation } from '../../contexts/ConfirmationContext';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 
 interface MemoryModalProps {
   isOpen: boolean;
@@ -328,7 +329,7 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, memor
           </h3>
           <button
             onClick={onClose}
-            className="p-1 rounded hover:bg-medieval-stone text-medieval-silver hover:text-medieval-gold transition-colors duration-200"
+            className="p-1 rounded hover:bg-medieval-stone text-medieval-silver hover:text-medieval-gold transition-all duration-300"
           >
             <X className="w-5 h-5" />
           </button>
@@ -616,10 +617,17 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, memor
             </button>
             <button
               type="submit"
-              className="btn-gold py-1.5 px-4 text-xs"
+              className="btn-gold py-1.5 px-4 text-xs flex items-center space-x-2"
               disabled={loading}
             >
-              {loading ? 'Entalhando na Pedra...' : memoryToEdit ? 'Atualizar Memória' : 'Gravar Memória'}
+              {loading ? (
+                <>
+                  <LoadingSpinner size="sm" />
+                  <span>Entalhando na Pedra...</span>
+                </>
+              ) : (
+                <span>{memoryToEdit ? 'Atualizar Memória' : 'Gravar Memória'}</span>
+              )}
             </button>
           </div>
 

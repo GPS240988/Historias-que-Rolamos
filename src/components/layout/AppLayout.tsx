@@ -14,7 +14,8 @@ import {
   X,
   ChevronLeft,
   Shield,
-  FileText
+  FileText,
+  Sparkles
 } from 'lucide-react';
 
 interface AppLayoutProps {
@@ -111,14 +112,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showSearch = tru
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Pesquisar registros, heróis..."
-                className="w-full pl-8 pr-8 py-1.5 text-xs medieval-input bg-medieval-charcoal/50 border border-medieval-gold/20 rounded focus:border-medieval-gold"
+                className="w-full pl-8 pr-8 py-1.5 text-xs medieval-input bg-medieval-charcoal/50 border border-medieval-gold/20 rounded focus:border-medieval-gold focus:ring-2 focus:ring-medieval-gold/30 focus:outline-none transition-all duration-300"
                 autoFocus
               />
               <Search className="absolute left-2.5 top-3 h-3.5 w-3.5 text-medieval-silver/50" />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-3.5 text-medieval-silver/50 hover:text-medieval-silver"
+                  className="absolute right-2.5 top-3.5 text-medieval-silver/50 hover:text-medieval-silver transition-colors duration-300"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -129,7 +130,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showSearch = tru
                 setIsSearching(false);
                 setSearchQuery('');
               }}
-              className="ml-3 text-xs text-medieval-gold font-medieval hover:text-medieval-brightGold uppercase tracking-wider"
+              className="ml-3 text-xs text-medieval-gold font-medieval hover:text-medieval-brightGold uppercase tracking-wider transition-colors duration-300"
             >
               Cancelar
             </button>
@@ -141,7 +142,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showSearch = tru
               {canGoBack && (
                 <button
                   onClick={goBack}
-                  className="p-1.5 rounded hover:bg-medieval-charcoal text-medieval-gold transition-colors duration-200"
+                  className="p-1.5 rounded hover:bg-medieval-charcoal hover:scale-110 text-medieval-gold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-medieval-gold/40"
                   aria-label="Voltar"
                 >
                   <ChevronLeft className="w-5 h-5" />
@@ -161,7 +162,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showSearch = tru
               {showSearch && (
                 <button
                   onClick={() => setIsSearching(true)}
-                  className="p-1.5 rounded hover:bg-medieval-charcoal text-medieval-gold transition-colors duration-200"
+                  className="p-1.5 rounded hover:bg-medieval-charcoal hover:scale-110 text-medieval-gold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-medieval-gold/40"
                   aria-label="Pesquisar"
                 >
                   <Search className="w-4 h-4" />
@@ -173,7 +174,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showSearch = tru
 
         {/* Global Search Results Panel overlay */}
         {searchQuery.trim() && searchResults && (
-          <div className="absolute top-14 left-0 right-0 p-4 bg-medieval-stone/98 border-b border-medieval-gold/25 z-40 max-h-[70vh] overflow-y-auto shadow-xl">
+          <div className="absolute top-14 left-0 right-0 p-4 glass-panel border-b border-medieval-gold/25 z-40 max-h-[70vh] overflow-y-auto shadow-xl animate-slide-up">
             <SearchResultsPanel
               results={searchResults}
               onItemClick={(targetViewState) => {
@@ -191,7 +192,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showSearch = tru
         </main>
 
         {/* Sticky Bottom Tab Bar (Bottom Nav on both PC and Mobile) */}
-        <nav className="w-full bg-medieval-stone border-t border-medieval-gold/25 backdrop-blur-md py-2 px-3 flex justify-around items-center shadow-2xl z-30 shrink-0">
+        <nav className="w-full bg-medieval-stone border-t border-medieval-gold/25 backdrop-blur-md py-2 px-3 flex justify-around items-center z-30 shrink-0">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = isViewActive(item.viewState);
@@ -199,7 +200,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showSearch = tru
               <button
                 key={item.label}
                 onClick={() => handleNavClick(item.viewState)}
-                className={`flex flex-col items-center py-1 px-3 rounded-lg transition-all duration-200 hover:text-medieval-brightGold ${active ? 'text-medieval-brightGold scale-105' : 'text-medieval-silver/80'
+                className={`flex flex-col items-center py-1 px-3 rounded-lg transition-all duration-300 hover:text-medieval-brightGold hover:scale-105 focus:outline-none focus:ring-2 focus:ring-medieval-gold/40 ${active ? 'text-medieval-brightGold scale-105' : 'text-medieval-silver/80'
                   }`}
               >
                 <Icon className={`w-5 h-5 ${active ? 'stroke-[2.2] text-medieval-gold' : 'stroke-[1.8]'}`} />
@@ -224,7 +225,7 @@ const SearchResultsPanel: React.FC<SearchResultsPanelProps> = ({ results, onItem
   const hasResults = results.characters.length > 0 || results.memories.length > 0 || results.tokens.length > 0;
 
   return (
-    <div className="grimoire-card bg-medieval-charcoal/90 border border-medieval-gold/20 rounded p-3 text-xs font-serif divide-y divide-medieval-gold/10">
+    <div className="grimoire-card grimoire-card-elevated bg-medieval-charcoal/60 border border-medieval-gold/20 rounded p-3 text-xs font-serif divide-y divide-medieval-gold/10">
       {!hasResults ? (
         <div className="py-3 text-center text-medieval-silver italic">
           Nenhum pergaminho ou herói encontrado nos registros.
@@ -234,17 +235,23 @@ const SearchResultsPanel: React.FC<SearchResultsPanelProps> = ({ results, onItem
           {/* Characters section */}
           {results.characters.length > 0 && (
             <div className="py-2 first:pt-0">
-              <span className="block text-[9px] text-medieval-gold uppercase font-medieval tracking-widest mb-1 flex items-center">
+              <span className="block text-[9px] text-medieval-gold uppercase font-medieval tracking-widest mb-1.5 flex items-center">
                 <Users className="w-3.5 h-3.5 mr-1" /> Heróis
+                <span className="ml-1.5 px-1.5 py-0.5 bg-medieval-gold/15 border border-medieval-gold/25 rounded-full text-[8px] text-medieval-brightGold">
+                  {results.characters.length}
+                </span>
               </span>
               <div className="space-y-1">
                 {results.characters.map(char => (
                   <button
                     key={char.id}
                     onClick={() => onItemClick({ type: 'character-profile', id: char.id })}
-                    className="w-full text-left p-1.5 rounded hover:bg-medieval-stone text-medieval-parchment hover:text-medieval-brightGold transition-all block truncate"
+                    className="w-full text-left p-2 rounded hover:bg-medieval-stone text-medieval-parchment hover:text-medieval-brightGold transition-all duration-300 block truncate focus:outline-none focus:ring-1 focus:ring-medieval-gold/40"
                   >
                     <span className="font-semibold">{char.name}</span>
+                    <span className="px-1.5 py-0.5 ml-1.5 bg-medieval-gold/10 border border-medieval-gold/15 rounded text-[8px] uppercase text-medieval-gold">
+                      Herói
+                    </span>
                     <span className="text-[10px] text-medieval-silver ml-1.5">({char.race} • {char.class})</span>
                   </button>
                 ))}
@@ -255,18 +262,23 @@ const SearchResultsPanel: React.FC<SearchResultsPanelProps> = ({ results, onItem
           {/* Memories section */}
           {results.memories.length > 0 && (
             <div className="py-2">
-              <span className="block text-[9px] text-medieval-gold uppercase font-medieval tracking-widest mb-1 flex items-center">
+              <span className="block text-[9px] text-medieval-gold uppercase font-medieval tracking-widest mb-1.5 flex items-center">
                 <FileText className="w-3.5 h-3.5 mr-1" /> Memórias
+                <span className="ml-1.5 px-1.5 py-0.5 bg-medieval-gold/15 border border-medieval-gold/25 rounded-full text-[8px] text-medieval-brightGold">
+                  {results.memories.length}
+                </span>
               </span>
               <div className="space-y-1">
                 {results.memories.map(mem => (
                   <button
                     key={mem.id}
                     onClick={() => onItemClick({ type: 'memory-detail', id: mem.id })}
-                    className="w-full text-left p-1.5 rounded hover:bg-medieval-stone text-medieval-parchment hover:text-medieval-brightGold transition-all block truncate"
+                    className="w-full text-left p-2 rounded hover:bg-medieval-stone text-medieval-parchment hover:text-medieval-brightGold transition-all duration-300 block truncate focus:outline-none focus:ring-1 focus:ring-medieval-gold/40"
                   >
                     <span className="font-semibold">{mem.title}</span>
-                    <span className="text-[10px] text-medieval-silver ml-1.5">({mem.type})</span>
+                    <span className="px-1.5 py-0.5 ml-1.5 bg-medieval-gold/10 border border-medieval-gold/15 rounded text-[8px] uppercase text-medieval-gold">
+                      {mem.type}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -276,18 +288,23 @@ const SearchResultsPanel: React.FC<SearchResultsPanelProps> = ({ results, onItem
           {/* Tokens section */}
           {results.tokens.length > 0 && (
             <div className="py-2 last:pb-0">
-              <span className="block text-[9px] text-medieval-gold uppercase font-medieval tracking-widest mb-1 flex items-center">
+              <span className="block text-[9px] text-medieval-gold uppercase font-medieval tracking-widest mb-1.5 flex items-center">
                 <Shield className="w-3.5 h-3.5 mr-1" /> Tokens
+                <span className="ml-1.5 px-1.5 py-0.5 bg-medieval-gold/15 border border-medieval-gold/25 rounded-full text-[8px] text-medieval-brightGold">
+                  {results.tokens.length}
+                </span>
               </span>
               <div className="space-y-1">
                 {results.tokens.map(tok => (
                   <button
                     key={tok.id}
                     onClick={() => onItemClick({ type: 'gallery', tab: 'tokens' })}
-                    className="w-full text-left p-1.5 rounded hover:bg-medieval-stone text-medieval-parchment hover:text-medieval-brightGold transition-all block truncate"
+                    className="w-full text-left p-2 rounded hover:bg-medieval-stone text-medieval-parchment hover:text-medieval-brightGold transition-all duration-300 block truncate focus:outline-none focus:ring-1 focus:ring-medieval-gold/40"
                   >
                     <span className="font-semibold">{tok.name}</span>
-                    <span className="text-[10px] text-medieval-silver ml-1.5">({tok.category})</span>
+                    <span className="px-1.5 py-0.5 ml-1.5 bg-medieval-gold/10 border border-medieval-gold/15 rounded text-[8px] uppercase text-medieval-gold">
+                      {tok.category}
+                    </span>
                   </button>
                 ))}
               </div>

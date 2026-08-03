@@ -32,7 +32,7 @@ const FileListItem: React.FC<{ file: Media; onClick: () => void }> = ({ file, on
   return (
     <div
       onClick={onClick}
-      className="p-3 grimoire-card hover:bg-medieval-stone/30 transition-all duration-200 flex items-center justify-between cursor-pointer group"
+      className="p-3 grimoire-card hover:bg-medieval-stone/30 transition-all duration-300 flex items-center justify-between cursor-pointer group"
     >
       <div className="flex items-center space-x-3 min-w-0">
         <div className="p-2 rounded bg-medieval-gold/10 text-medieval-gold group-hover:bg-medieval-gold/15 transition-all">
@@ -47,7 +47,7 @@ const FileListItem: React.FC<{ file: Media; onClick: () => void }> = ({ file, on
           </span>
         </div>
       </div>
-      <ChevronRight className="w-4 h-4 text-medieval-gold/40 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-200" />
+      <ChevronRight className="w-4 h-4 text-medieval-gold/40 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-300" />
     </div>
   );
 };
@@ -182,7 +182,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ tab = 'images' }) => {
       <div className="flex flex-wrap gap-2 pb-2">
         <button
           onClick={() => handleTabChange('images')}
-          className={`px-4 py-1.5 text-xs font-serif rounded transition-all duration-200 ${tab === 'images'
+          className={`px-4 py-1.5 text-xs font-serif rounded transition-all duration-300 ${tab === 'images'
             ? 'bg-medieval-gold/15 border border-medieval-gold text-medieval-brightGold font-medium shadow-sm'
             : 'bg-medieval-stone/40 border border-medieval-gold/10 text-medieval-silver hover:bg-medieval-stone'
             }`}
@@ -191,7 +191,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ tab = 'images' }) => {
         </button>
         <button
           onClick={() => handleTabChange('files')}
-          className={`px-4 py-1.5 text-xs font-serif rounded transition-all duration-200 ${tab === 'files'
+          className={`px-4 py-1.5 text-xs font-serif rounded transition-all duration-300 ${tab === 'files'
             ? 'bg-medieval-gold/15 border border-medieval-gold text-medieval-brightGold font-medium shadow-sm'
             : 'bg-medieval-stone/40 border border-medieval-gold/10 text-medieval-silver hover:bg-medieval-stone'
             }`}
@@ -200,7 +200,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ tab = 'images' }) => {
         </button>
         <button
           onClick={() => handleTabChange('tokens')}
-          className={`px-4 py-1.5 text-xs font-serif rounded transition-all duration-200 ${tab === 'tokens'
+          className={`px-4 py-1.5 text-xs font-serif rounded transition-all duration-300 ${tab === 'tokens'
             ? 'bg-medieval-gold/15 border border-medieval-gold text-medieval-brightGold font-medium shadow-sm'
             : 'bg-medieval-stone/40 border border-medieval-gold/10 text-medieval-silver hover:bg-medieval-stone'
             }`}
