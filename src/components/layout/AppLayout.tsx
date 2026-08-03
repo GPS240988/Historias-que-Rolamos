@@ -98,10 +98,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showSearch = tru
   };
 
   return (
-    <div className="w-screen h-screen bg-[#0a0a0c] text-medieval-parchment flex justify-center overflow-hidden selection:bg-medieval-gold/30 selection:text-medieval-brightGold">
+    <div className="w-screen min-h-[100dvh] bg-[#0a0a0c] text-medieval-parchment flex justify-center overflow-hidden selection:bg-medieval-gold/30 selection:text-medieval-brightGold">
 
-      {/* Full-width Container (fills entire screen on all breakpoints) */}
-      <div className="w-full h-full bg-medieval-charcoal flex flex-col relative">
+      {/* Full-width Container (fills dynamic viewport height, handles mobile browser bars) */}
+      <div className="w-full min-h-[100dvh] bg-medieval-charcoal flex flex-col relative">
 
         {/* Sticky Header - Top Bar */}
         {isSearching ? (
@@ -186,13 +186,13 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showSearch = tru
           </div>
         )}
 
-        {/* Scrollable Main Content Frame */}
-        <main className="flex-1 p-4 md:p-6 overflow-y-auto scrollbar-none flex flex-col">
+        {/* Scrollable Main Content Frame - padding bottom for fixed nav */}
+        <main className="flex-1 p-4 md:p-6 pb-24 md:pb-24 overflow-y-auto scrollbar-none flex flex-col">
           {children}
         </main>
 
-        {/* Sticky Bottom Tab Bar (Bottom Nav on both PC and Mobile) */}
-        <nav className="w-full bg-medieval-stone border-t border-medieval-gold/25 backdrop-blur-md py-2 px-3 flex justify-around items-center z-30 shrink-0">
+        {/* Fixed Bottom Tab Bar (Bottom Nav on both PC and Mobile) */}
+        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-screen bg-medieval-stone border-t border-medieval-gold/25 backdrop-blur-md py-2 px-3 flex justify-around items-center z-30 shrink-0">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = isViewActive(item.viewState);
