@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import type { Campaign } from '../types';
 import { MediaService } from '../services/media';
+import { CampaignRepository } from '../repositories/CampaignRepository';
 
 interface CampaignContextType {
   campaign: Campaign | null;
@@ -69,7 +70,7 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const deleteCampaign = async (id: string) => {
-    await db.transaction('rw', [db.campaigns, db.characters, db.memories, db.tokens, db.memoryCharacters, db.media], async () => {
+    await db.transaction('rw', [db.campaigns, db.characters, db.memories, db.tokens, db.memoryCharacters, db.media, db.sync_outbox], async () => {
       // Find memories to delete relations
       const memories = await db.memories.where('campaignId').equals(id).toArray();
       const memoryIds = memories.map(m => m.id);
@@ -84,7 +85,7 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       await db.memories.where('campaignId').equals(id).delete();
       await db.tokens.where('campaignId').equals(id).delete();
       await db.media.where('campaignId').equals(id).delete();
-      await db.campaigns.delete(id);
+      await CampaignRepository.delete(id);
     });
 
     // Reset active ID if we deleted the current active campaign
@@ -143,7 +144,7 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       updatedAt: new Date().toISOString()
     };
 
-    await db.campaigns.put(newCampaign);
+    await CampaignRepository.save(newCampaign);
     switchCampaign(campaignId);
     return newCampaign;
   };
@@ -168,7 +169,7 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       updatedAt: new Date().toISOString()
     };
 
-    await db.campaigns.put(updatedCampaign);
+    await CampaignRepository.save(updatedCampaign);
   };
 
   const resetCampaign = async (): Promise<void> => {

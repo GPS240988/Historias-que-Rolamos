@@ -3,6 +3,7 @@ import { CampaignProvider, useCampaign } from './contexts/CampaignContext';
 import { RouterProvider, useRouter } from './contexts/RouterContext';
 import { SearchProvider } from './contexts/SearchContext';
 import { ConfirmationProvider } from './contexts/ConfirmationContext';
+import { SyncProvider } from './contexts/SyncContext';
 import { AppLayout } from './components/layout/AppLayout';
 import { CampaignSetup } from './views/CampaignSetup';
 import { CampaignHome } from './views/CampaignHome';
@@ -62,9 +63,11 @@ function App() {
     <ConfirmationProvider>
       <SearchProvider>
         <CampaignProvider>
-          <RouterProvider>
-            <AppContent />
-          </RouterProvider>
+          <SyncProvider>
+            <RouterProvider>
+              <AppContent />
+            </RouterProvider>
+          </SyncProvider>
         </CampaignProvider>
       </SearchProvider>
     </ConfirmationProvider>

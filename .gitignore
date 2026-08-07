@@ -25,3 +25,7 @@ dist-ssr
 
 # PDFs and campaign books
 public/*.pdf
+
+# Local secrets
+.dev.vars
+

@@ -8,6 +8,7 @@ export interface Campaign {
   createdAt: string;
   updatedAt: string;
   lastImportedFrom?: string;
+  version?: number;
 }
 
 export interface CharacterEvolution {
@@ -38,6 +39,7 @@ export interface Character {
   createdAt: string;
   updatedAt?: string;
   evolutions?: CharacterEvolution[];
+  version?: number;
 }
 
 export interface MemoryComment {
@@ -61,6 +63,7 @@ export interface Memory {
   comments?: MemoryComment[]; // Inline comments on this memory
   createdAt: string;
   updatedAt: string;
+  version?: number;
 }
 
 export type MemoryType =
@@ -95,6 +98,7 @@ export interface Media {
   tags?: string[];
   isGallery: boolean;
   createdAt: string;
+  version?: number;
 }
 
 export interface MemoryCharacter {
@@ -102,6 +106,7 @@ export interface MemoryCharacter {
   memoryId: string;
   characterId: string;
   levelReached?: number;
+  version?: number;
 }
 
 export interface Token {
@@ -114,6 +119,7 @@ export interface Token {
   notes?: string;
   createdAt: string;
   updatedAt: string;
+  version?: number;
 }
 
 // Full Campaign Backup structure (JSON part)
@@ -125,4 +131,26 @@ export interface CampaignBackup {
   memoryCharacters: MemoryCharacter[];
   tokens: Token[];
   mediaMetadata: Omit<Media, 'blob' | 'thumbnail'>[];
+}
+
+export interface SyncOutbox {
+  id?: number;
+  entityType: 'campaign' | 'character' | 'memory' | 'memoryCharacter' | 'token' | 'media';
+  entityId: string;
+  operation: 'CREATE' | 'UPDATE' | 'DELETE';
+  baseVersion: number;
+  payload: any;
+  createdAt: string;
+  status: 'pending' | 'syncing' | 'failed' | 'conflict';
+  errorMessage?: string;
+  serverVersion?: number;
+  serverPayload?: any;
+}
+
+export interface UserSession {
+  token: string;
+  user: {
+    id: string;
+    username: string;
+  };
 }

@@ -4,6 +4,8 @@ import type { Character, CharacterEvolution, Media, Memory } from '../../types';
 import { useCampaign } from '../../contexts/CampaignContext';
 import { MediaService } from '../../services/media';
 import { db } from '../../db';
+import { CharacterRepository } from '../../repositories/CharacterRepository';
+import { MediaRepository } from '../../repositories/MediaRepository';
 import { X, User, Image as ImageIcon, FileText, Download, Plus, MessageSquare, ScrollText, Trash2, BookOpen, Edit3 } from 'lucide-react';
 import { useConfirmation } from '../../contexts/ConfirmationContext';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
@@ -223,9 +225,9 @@ export const CharacterModal: React.FC<CharacterModalProps> = ({ isOpen, onClose,
     setEvolutions(updatedEvolutions);
     if (characterToEdit) {
       try {
-        const currentChar = await db.characters.get(characterToEdit.id);
+        const currentChar = await CharacterRepository.get(characterToEdit.id);
         if (currentChar) {
-          await db.characters.put({
+          await CharacterRepository.save({
             ...currentChar,
             evolutions: updatedEvolutions,
             updatedAt: new Date().toISOString(),
@@ -351,11 +353,15 @@ export const CharacterModal: React.FC<CharacterModalProps> = ({ isOpen, onClose,
 
       for (const file of photoFiles) {
         const mediaId = await MediaService.saveMedia(file, campaign!.id, true);
-        await db.media.update(mediaId, { relatedCharacterId: characterId });
+        const mediaRecord = await MediaRepository.get(mediaId);
+        if (mediaRecord) {
+          mediaRecord.relatedCharacterId = characterId;
+          await MediaRepository.save(mediaRecord);
+        }
       }
 
       if (characterToEdit) {
-        await db.characters.put({
+        await CharacterRepository.save({
           id: characterToEdit.id,
           campaignId: characterToEdit.campaignId,
           name,
@@ -397,7 +403,7 @@ export const CharacterModal: React.FC<CharacterModalProps> = ({ isOpen, onClose,
           evolutions,
           createdAt: new Date().toISOString(),
         };
-        await db.characters.add(newChar);
+        await CharacterRepository.save(newChar);
       }
 
       onClose();

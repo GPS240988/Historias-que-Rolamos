@@ -4,6 +4,7 @@ import { useSearch } from '../../contexts/SearchContext';
 import { useCampaign } from '../../contexts/CampaignContext';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db';
+import { SyncStatus } from '../ui/SyncStatus';
 import {
   Book,
   Compass,
@@ -157,7 +158,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showSearch = tru
             </div>
 
             {/* Right Search toggle trigger icon */}
-            <div className="flex items-center justify-end min-w-[50px]">
+            <div className="flex items-center justify-end min-w-[50px] space-x-2">
+              <SyncStatus />
               {showSearch && (
                 <button
                   onClick={() => setIsSearching(true)}

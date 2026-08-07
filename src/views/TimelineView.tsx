@@ -4,6 +4,8 @@ import { db } from '../db';
 import { useSearch } from '../contexts/SearchContext';
 import { useRouter } from '../contexts/RouterContext';
 import { useCampaign } from '../contexts/CampaignContext';
+import { MemoryRepository } from '../repositories/MemoryRepository';
+import { MemoryCharacterRepository } from '../repositories/MemoryCharacterRepository';
 import { useMediaUrl } from '../hooks/useMediaUrl';
 import { MemoryModal } from '../components/memory/MemoryModal';
 import { MediaService } from '../services/media';
@@ -148,10 +150,10 @@ export const TimelineView: React.FC = () => {
         if (memory.imageId) {
           await MediaService.deleteMedia(memory.imageId);
         }
-        await db.memories.delete(memory.id);
+        await MemoryRepository.delete(memory.id);
         const relations = await db.memoryCharacters.where('memoryId').equals(memory.id).toArray();
         for (const rel of relations) {
-          await db.memoryCharacters.delete(rel.id);
+          await MemoryCharacterRepository.delete(rel.id);
         }
       } catch (err) {
         console.error('Erro ao deletar memória:', err);

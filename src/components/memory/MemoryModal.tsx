@@ -4,6 +4,10 @@ import type { Memory, MemoryCharacter, MemoryType, Media } from '../../types';
 import { useCampaign } from '../../contexts/CampaignContext';
 import { MediaService } from '../../services/media';
 import { db } from '../../db';
+import { MemoryRepository } from '../../repositories/MemoryRepository';
+import { MemoryCharacterRepository } from '../../repositories/MemoryCharacterRepository';
+import { CharacterRepository } from '../../repositories/CharacterRepository';
+import { MediaRepository } from '../../repositories/MediaRepository';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { X, Calendar, Edit3, Tag, Users, Plus, Image as ImageIcon } from 'lucide-react';
 import { useMediaUrl } from '../../hooks/useMediaUrl';
@@ -259,9 +263,12 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, memor
 
       // Save additional photos if selected
       for (const file of photoFiles) {
-        // Save to IndexedDB (marked as isGallery: true for campaign images)
         const mediaId = await MediaService.saveMedia(file, campaign!.id, true);
-        await db.media.update(mediaId, { relatedMemoryId: memoryId });
+        const mediaRecord = await MediaRepository.get(mediaId);
+        if (mediaRecord) {
+          mediaRecord.relatedMemoryId = memoryId;
+          await MediaRepository.save(mediaRecord);
+        }
       }
 
       const memoryData: Memory = {
@@ -280,12 +287,12 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, memor
         comments: memoryToEdit?.comments
       };
 
-      await db.memories.put(memoryData);
+      await MemoryRepository.save(memoryData);
 
       // Save character relationships
-      const existingRels = await db.memoryCharacters.where('memoryId').equals(memoryId).toArray();
+      const existingRels = await MemoryCharacterRepository.list(memoryId);
       for (const rel of existingRels) {
-        await db.memoryCharacters.delete(rel.id);
+        await MemoryCharacterRepository.delete(rel.id);
       }
 
       // Add updated relationships
@@ -298,10 +305,14 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, memor
             characterId: charId,
             levelReached: state.levelUp ? state.level : undefined
           };
-          await db.memoryCharacters.add(charRel);
+          await MemoryCharacterRepository.save(charRel);
 
           if (state.levelUp) {
-            await db.characters.update(charId, { level: state.level });
+            const char = await CharacterRepository.get(charId);
+            if (char) {
+              char.level = state.level;
+              await CharacterRepository.save(char);
+            }
           }
         }
       });

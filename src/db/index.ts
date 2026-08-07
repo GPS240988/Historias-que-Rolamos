@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { Campaign, Character, Memory, Media, Token, MemoryCharacter } from '../types';
+import type { Campaign, Character, Memory, Media, Token, MemoryCharacter, SyncOutbox } from '../types';
 
 export class ChronicleDatabase extends Dexie {
   campaigns!: Table<Campaign, string>;
@@ -8,6 +8,7 @@ export class ChronicleDatabase extends Dexie {
   media!: Table<Media, string>;
   tokens!: Table<Token, string>;
   memoryCharacters!: Table<MemoryCharacter, string>;
+  sync_outbox!: Table<SyncOutbox, number>;
 
   constructor() {
     super('ChroniclesOfTheJourney');
@@ -16,13 +17,14 @@ export class ChronicleDatabase extends Dexie {
     // First field is primary key.
     // Subsequent fields are indexed.
     // Asterisk (*) prefix indicates multi-entry array indices.
-    this.version(1).stores({
+    this.version(2).stores({
       campaigns: 'id',
       characters: 'id, campaignId, name, class, origin',
       memories: 'id, campaignId, eventDate, *characterIds, *tags',
       media: 'id, campaignId',
       tokens: 'id, campaignId, category, relatedCharacterId',
-      memoryCharacters: 'id, memoryId, characterId, levelReached'
+      memoryCharacters: 'id, memoryId, characterId, levelReached',
+      sync_outbox: '++id, entityType, entityId, status'
     });
   }
 
@@ -32,7 +34,7 @@ export class ChronicleDatabase extends Dexie {
   async clearAll() {
     await this.transaction(
       'rw',
-      [this.campaigns, this.characters, this.memories, this.media, this.tokens, this.memoryCharacters],
+      [this.campaigns, this.characters, this.memories, this.media, this.tokens, this.memoryCharacters, this.sync_outbox],
       async () => {
         await this.campaigns.clear();
         await this.characters.clear();
@@ -40,6 +42,7 @@ export class ChronicleDatabase extends Dexie {
         await this.media.clear();
         await this.tokens.clear();
         await this.memoryCharacters.clear();
+        await this.sync_outbox.clear();
       }
     );
   }

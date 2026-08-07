@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { useRouter } from '../contexts/RouterContext';
+import { MemoryRepository } from '../repositories/MemoryRepository';
 import { useMediaUrl } from '../hooks/useMediaUrl';
 import { getCategoryColorClass } from './TimelineView';
 import type { Character, Media, MemoryComment } from '../types';
@@ -102,7 +103,7 @@ export const MemoryDetailView: React.FC<MemoryDetailViewProps> = ({ id }) => {
   const saveCommentsToDb = async (updatedComments: MemoryComment[]) => {
     if (memory) {
       try {
-        await db.memories.put({ ...memory, comments: updatedComments, updatedAt: new Date().toISOString() });
+        await MemoryRepository.save({ ...memory, comments: updatedComments, updatedAt: new Date().toISOString() });
       } catch (err: any) {
         setCommentError('Erro ao salvar no banco de dados: ' + err.message);
       }

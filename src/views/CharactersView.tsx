@@ -4,6 +4,8 @@ import { db } from '../db';
 import { useSearch } from '../contexts/SearchContext';
 import { useRouter } from '../contexts/RouterContext';
 import { useCampaign } from '../contexts/CampaignContext';
+import { CharacterRepository } from '../repositories/CharacterRepository';
+import { MemoryCharacterRepository } from '../repositories/MemoryCharacterRepository';
 import { useMediaUrl } from '../hooks/useMediaUrl';
 import { CharacterModal } from '../components/character/CharacterModal';
 import { MediaService } from '../services/media';
@@ -73,11 +75,11 @@ export const CharactersView: React.FC = () => {
         if (char.imageId) {
           await MediaService.deleteMedia(char.imageId);
         }
-        await db.characters.delete(char.id);
+        await CharacterRepository.delete(char.id);
         // Also clean up relationships in memoryCharacters
         const relations = await db.memoryCharacters.where('characterId').equals(char.id).toArray();
         for (const rel of relations) {
-          await db.memoryCharacters.delete(rel.id);
+          await MemoryCharacterRepository.delete(rel.id);
         }
       } catch (err) {
         console.error('Erro ao deletar herói:', err);

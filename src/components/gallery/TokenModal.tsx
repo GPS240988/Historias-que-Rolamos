@@ -4,6 +4,7 @@ import type { Token } from '../../types';
 import { useCampaign } from '../../contexts/CampaignContext';
 import { MediaService } from '../../services/media';
 import { db } from '../../db';
+import { TokenRepository } from '../../repositories/TokenRepository';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { X, PenTool, Users, Shield, Image as ImageIcon } from 'lucide-react';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
@@ -102,7 +103,7 @@ export const TokenModal: React.FC<TokenModalProps> = ({ isOpen, onClose, tokenTo
         updatedAt: new Date().toISOString()
       };
 
-      await db.tokens.put(tokenData);
+      await TokenRepository.save(tokenData);
       onClose();
     } catch (err: any) {
       setError(err.message || 'Erro ao registrar token de combate.');

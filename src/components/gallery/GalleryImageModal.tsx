@@ -4,6 +4,7 @@ import type { Media } from '../../types';
 import { useCampaign } from '../../contexts/CampaignContext';
 import { MediaService } from '../../services/media';
 import { db } from '../../db';
+import { MediaRepository } from '../../repositories/MediaRepository';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { X, Calendar, Tag, Users, Film, Edit3, Image as ImageIcon, Shield } from 'lucide-react';
 
@@ -118,11 +119,19 @@ export const GalleryImageModal: React.FC<GalleryImageModalProps> = ({ isOpen, on
 
       if (imageToEdit) {
         // Just update metadata
-        await db.media.update(imageToEdit.id, updates);
+        const mediaRecord = await MediaRepository.get(imageToEdit.id);
+        if (mediaRecord) {
+          Object.assign(mediaRecord, updates);
+          await MediaRepository.save(mediaRecord);
+        }
       } else if (file) {
         // Upload new image and save with details (marked as gallery)
         const mediaId = await MediaService.saveMedia(file, campaign!.id, true);
-        await db.media.update(mediaId, updates);
+        const mediaRecord = await MediaRepository.get(mediaId);
+        if (mediaRecord) {
+          Object.assign(mediaRecord, updates);
+          await MediaRepository.save(mediaRecord);
+        }
       }
 
       onClose();
