@@ -253,14 +253,11 @@ export default {
       // --- MEDIA D1 ENDPOINTS (native BLOB storage) ---
       if (path.startsWith('/api/media/upload/') && request.method === 'PUT') {
         const rawId = path.substring(18); // Get /api/media/upload/:id
-        const isThumb = rawId.endsWith('_thumb');
-        const mediaId = isThumb ? rawId.slice(0, -6) : rawId;
         const body = await request.arrayBuffer();
 
-        const column = isThumb ? 'thumbnail_data' : 'blob_data';
         await env.DB.prepare(
-          `UPDATE media SET ${column} = ? WHERE id = ?`
-        ).bind(body, mediaId).run();
+          'INSERT OR REPLACE INTO media_files (id, data) VALUES (?, ?)'
+        ).bind(rawId, body).run();
 
         return new Response(JSON.stringify({ success: true }), { status: 200, headers });
       }
@@ -270,20 +267,24 @@ export default {
         const isThumb = rawId.endsWith('_thumb');
         const mediaId = isThumb ? rawId.slice(0, -6) : rawId;
 
-        const column = isThumb ? 'thumbnail_data' : 'blob_data';
         const row = await env.DB.prepare(
-          `SELECT ${column}, mime_type FROM media WHERE id = ? AND deleted = 0`
-        ).bind(mediaId).first<any>();
+          'SELECT data FROM media_files WHERE id = ?'
+        ).bind(rawId).first<any>();
 
-        if (!row || !row[column]) {
+        if (!row || !row.data) {
           return new Response(JSON.stringify({ error: 'Arquivo não encontrado.' }), { status: 404, headers });
         }
 
+        // Get mime_type from metadata table if available
+        const mimeRow = await env.DB.prepare(
+          'SELECT mime_type FROM media WHERE id = ?'
+        ).bind(mediaId).first<any>();
+
         const fileHeaders = new Headers(headers);
-        fileHeaders.set('Content-Type', row.mime_type || 'application/octet-stream');
+        fileHeaders.set('Content-Type', mimeRow?.mime_type || 'application/octet-stream');
         fileHeaders.set('Cache-Control', 'public, max-age=31536000');
 
-        return new Response(row[column], { headers: fileHeaders });
+        return new Response(row.data, { headers: fileHeaders });
       }
 
       // --- SYNC PULL ROUTE (GET /api/sync) ---
