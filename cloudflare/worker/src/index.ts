@@ -337,59 +337,7 @@ export default {
         for (const mut of mutations) {
           const { outboxId, entityType, entityId, operation, baseVersion, payload } = mut;
 
-          // Determine campaignId
-          let campaignId = payload?.campaignId;
-          if (entityType === 'campaign') {
-            campaignId = entityId;
-          }
-
-          if (!campaignId && operation === 'DELETE') {
-            // Find campaignId from database if payload is missing
-            const tableMap: Record<string, string> = {
-              character: 'characters',
-              memory: 'memories',
-              token: 'tokens',
-              memoryCharacter: 'memory_characters',
-              media: 'media'
-            };
-            const table = tableMap[entityType];
-            if (table) {
-              const row = await env.DB.prepare(`SELECT campaign_id FROM ${table} WHERE id = ?`).bind(entityId).first<any>();
-              campaignId = row?.campaign_id;
-            }
-          }
-
-          if (!campaignId) {
-            results.push({ outboxId, status: 'error', error: 'CampaignId could not be identified.' });
-            continue;
-          }
-
-          // Authorization Guard
-          let isMaster = false;
-          if (entityType === 'campaign' && (operation === 'CREATE' || !serverExists)) {
-            // Anyone authenticated can create a new campaign
-            isMaster = true;
-          } else {
-            const member = await env.DB.prepare(
-              'SELECT role FROM campaign_members WHERE campaign_id = ? AND user_id = ?'
-            ).bind(campaignId, currentUserId).first<any>();
-
-            if (!member) {
-              results.push({ outboxId, status: 'error', error: 'Forbidden. Not a member of this campaign.' });
-              continue;
-            }
-            isMaster = member.role === 'MASTER';
-          }
-
-          // Enforce MASTER permissions for sensitive operations
-          const isMasterOnly = (entityType === 'campaign') || 
-                               (entityType === 'memory' && operation === 'DELETE');
-          if (isMasterOnly && !isMaster) {
-            results.push({ outboxId, status: 'error', error: 'Forbidden. Ação permitida apenas para o Mestre da campanha.' });
-            continue;
-          }
-
-          // Conflict Resolution Engine
+          // Map entity type to database table
           const tableMap: Record<string, string> = {
             campaign: 'campaigns',
             character: 'characters',
@@ -400,14 +348,72 @@ export default {
           };
           const dbTable = tableMap[entityType];
 
+          // Determine campaignId
+          let campaignId = payload?.campaignId;
+          if (entityType === 'campaign') {
+            campaignId = entityId;
+          }
+
+          if (!campaignId && operation === 'DELETE') {
+            // Find campaignId from database if payload is missing
+            if (dbTable) {
+              const row = await env.DB.prepare(`SELECT campaign_id FROM ${dbTable} WHERE id = ?`).bind(entityId).first<any>();
+              campaignId = row?.campaign_id;
+            }
+          }
+
+          if (!campaignId) {
+            results.push({ outboxId, status: 'error', error: 'CampaignId could not be identified.' });
+            continue;
+          }
+
           // Fetch current server state
-          const serverRow = await env.DB.prepare(
+          const serverRow = dbTable ? await env.DB.prepare(
             `SELECT version, deleted, ${entityType === 'campaign' ? 'name' : 'campaign_id'} FROM ${dbTable} WHERE id = ?`
-          ).bind(entityId).first<any>();
+          ).bind(entityId).first<any>() : null;
 
           const serverExists = !!serverRow;
           const serverDeleted = serverExists && serverRow.deleted === 1;
           const serverVersion = serverExists ? serverRow.version : 0;
+
+          // Authorization Guard
+          let isMaster = false;
+          if (entityType === 'campaign' && (operation === 'CREATE' || !serverExists)) {
+            // Anyone authenticated can create a new campaign
+            isMaster = true;
+          } else {
+            // Recover from orphaned campaign states (0 members)
+            const memberCountRes = await env.DB.prepare(
+              'SELECT COUNT(*) as count FROM campaign_members WHERE campaign_id = ?'
+            ).bind(campaignId).first<any>();
+            const isOrphaned = !memberCountRes || memberCountRes.count === 0;
+
+            if (isOrphaned) {
+              isMaster = true;
+              // Auto-assign first writer as MASTER of the orphaned campaign
+              await env.DB.prepare(
+                'INSERT OR IGNORE INTO campaign_members (campaign_id, user_id, role) VALUES (?, ?, ?)'
+              ).bind(campaignId, currentUserId, 'MASTER').run();
+            } else {
+              const member = await env.DB.prepare(
+                'SELECT role FROM campaign_members WHERE campaign_id = ? AND user_id = ?'
+              ).bind(campaignId, currentUserId).first<any>();
+
+              if (!member) {
+                results.push({ outboxId, status: 'error', error: 'Forbidden. Not a member of this campaign.' });
+                continue;
+              }
+              isMaster = member.role === 'MASTER';
+            }
+          }
+
+          // Enforce MASTER permissions for sensitive operations
+          const isMasterOnly = (entityType === 'campaign') || 
+                               (entityType === 'memory' && operation === 'DELETE');
+          if (isMasterOnly && !isMaster) {
+            results.push({ outboxId, status: 'error', error: 'Forbidden. Ação permitida apenas para o Mestre da campanha.' });
+            continue;
+          }
 
           // Conflict check (Scenario B & C)
           if (serverExists && baseVersion < serverVersion) {

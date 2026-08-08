@@ -150,6 +150,11 @@ export const SyncEngine = {
             serverVersion: res.serverVersion,
             serverPayload: res.serverPayload
           });
+        } else if (res.status === 'error' as any || (res as any).status === 'error') {
+          await db.sync_outbox.update(res.outboxId, {
+            status: 'failed',
+            errorMessage: (res as any).error || 'Erro desconhecido no servidor'
+          });
         }
       }
     });
