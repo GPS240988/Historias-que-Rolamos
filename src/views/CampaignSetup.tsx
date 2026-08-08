@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { useCampaign } from '../contexts/CampaignContext';
 import { useRouter } from '../contexts/RouterContext';
-import { BackupService } from '../services/backup';
-import { OperationOverlay } from '../components/ui/OperationOverlay';
 import { useSync } from '../contexts/SyncContext';
-import { Shield, BookOpen, PenTool, Image as ImageIcon, Upload } from 'lucide-react';
+import { Shield, BookOpen, PenTool, Image as ImageIcon } from 'lucide-react';
+import { OperationOverlay } from '../components/ui/OperationOverlay';
 
 export const CampaignSetup: React.FC = () => {
   const { createCampaign, campaigns, switchCampaign } = useCampaign();
@@ -19,16 +18,18 @@ export const CampaignSetup: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Operation overlay states
+  const [progress, setProgress] = useState<number | null>(null);
+  const [statusText, setStatusText] = useState('');
+  const [operationResult, setOperationResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
   // Cloud sync states
   const [cloudUsername, setCloudUsername] = useState('');
   const [cloudPassword, setCloudPassword] = useState('');
   const [cloudError, setCloudError] = useState<string | null>(null);
   const [inviteCode, setInviteCode] = useState('');
 
-  // Overlay states for backup restore
-  const [progress, setProgress] = useState<number | null>(null);
-  const [statusText, setStatusText] = useState('');
-  const [operationResult, setOperationResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
 
   const handleCloudLogin = async () => {
     if (!cloudUsername.trim() || !cloudPassword) {
@@ -37,12 +38,14 @@ export const CampaignSetup: React.FC = () => {
     }
     setLoading(true);
     setCloudError(null);
+    setStatusText('Conectando à nuvem...');
     try {
       await login(cloudUsername, cloudPassword);
       setCloudUsername('');
       setCloudPassword('');
     } catch (err: any) {
       setCloudError(err.message || 'Erro ao conectar com o Servidor.');
+      setOperationResult({ type: 'error', message: err.message || 'Erro ao conectar com o Servidor.' });
     } finally {
       setLoading(false);
     }
@@ -55,12 +58,15 @@ export const CampaignSetup: React.FC = () => {
     }
     setLoading(true);
     setCloudError(null);
+    setStatusText('Escrevendo assinatura na nuvem...');
     try {
       await register(cloudUsername, cloudPassword);
       setCloudUsername('');
       setCloudPassword('');
+      setOperationResult({ type: 'success', message: 'Assinatura criada e conectada com sucesso!' });
     } catch (err: any) {
       setCloudError(err.message || 'Erro ao registrar assinatura.');
+      setOperationResult({ type: 'error', message: err.message || 'Erro ao registrar assinatura.' });
     } finally {
       setLoading(false);
     }
@@ -72,6 +78,8 @@ export const CampaignSetup: React.FC = () => {
       return;
     }
     setLoading(true);
+    setStatusText('Buscando grimório na nuvem...');
+    setProgress(20);
     try {
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
       const token = localStorage.getItem('cloud_token');
@@ -90,6 +98,8 @@ export const CampaignSetup: React.FC = () => {
         throw new Error(err.error || 'Código inválido ou sem acesso.');
       }
 
+      setProgress(50);
+      setStatusText('Inicializando grimório local...');
       const campaignId = inviteCode.trim();
       const { CampaignRepository } = await import('../repositories/CampaignRepository');
       
@@ -106,15 +116,22 @@ export const CampaignSetup: React.FC = () => {
 
       await CampaignRepository.save(newCampaignStub, false);
       
+      setProgress(80);
+      setStatusText('Baixando crônicas e memórias...');
       const { SyncEngine } = await import('../services/sync');
       await SyncEngine.pullServerChanges(campaignId);
 
+      setProgress(100);
+      setStatusText('Sincronização concluída!');
+      
       switchCampaign(campaignId);
       navigate({ type: 'dashboard' });
     } catch (err: any) {
       setError(err.message || 'Erro ao entrar na campanha.');
+      setOperationResult({ type: 'error', message: err.message || 'Erro ao entrar na campanha.' });
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   };
 
@@ -141,72 +158,19 @@ export const CampaignSetup: React.FC = () => {
 
     setLoading(true);
     setError(null);
+    setStatusText('Criando grimório local...');
     try {
       await createCampaign(name, system, description, coverFile);
       navigate({ type: 'dashboard' });
     } catch (err: any) {
       setError(err.message || 'Erro ao criar a campanha. Tente novamente.');
+      setOperationResult({ type: 'error', message: err.message || 'Erro ao criar a campanha.' });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
 
-    const isJson = file.name.endsWith('.json');
-    const isZip = file.name.endsWith('.zip');
-
-    if (!isJson && !isZip) {
-      setOperationResult({ type: 'error', message: 'Formato de arquivo inválido. Selecione um .json ou .zip de backup.' });
-      return;
-    }
-
-    setLoading(true);
-    setOperationResult(null);
-    setProgress(0);
-    setStatusText('Validando arquivo de memórias...');
-
-    try {
-      let importedIds: string[] = [];
-      if (isJson) {
-        const text = await file.text();
-        const data = JSON.parse(text);
-        setProgress(50);
-        setStatusText('Restaurando tabelas de dados...');
-        importedIds = await BackupService.importJSONData(data, file.name);
-        setProgress(100);
-        setOperationResult({
-          type: 'success',
-          message: 'Dados de crônicas restaurados com sucesso.',
-        });
-      } else {
-        importedIds = await BackupService.importFullZipData(file, (p) => {
-          setProgress(p);
-          setStatusText(`Extraindo e otimizando miniaturas... (${p}%)`);
-        });
-        setOperationResult({
-          type: 'success',
-          message: 'Memória completa e galeria de imagens restauradas com sucesso.',
-        });
-      }
-
-      if (importedIds.length > 0) {
-        const firstId = importedIds[0];
-        // Switch and navigate immediately on first-time import
-        switchCampaign(firstId);
-        navigate({ type: 'dashboard' });
-      }
-    } catch (err: any) {
-      setOperationResult({ type: 'error', message: err.message || 'Erro ao importar arquivo de backup.' });
-    } finally {
-      setLoading(false);
-      setProgress(null);
-      // Clear input
-      e.target.value = '';
-    }
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-medieval-charcoal/90 relative">
