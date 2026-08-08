@@ -14,14 +14,14 @@ export const SyncOutboxRepository = {
   async listPending(): Promise<SyncOutbox[]> {
     return await db.sync_outbox
       .where('status')
-      .anyOf(['pending', 'failed'])
+      .equals('pending')
       .toArray();
   },
 
   async listConflicts(): Promise<SyncOutbox[]> {
     return await db.sync_outbox
       .where('status')
-      .equals('conflict')
+      .anyOf(['conflict', 'failed'])
       .toArray();
   },
 

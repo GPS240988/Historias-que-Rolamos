@@ -52,22 +52,40 @@ export const SyncEngine = {
     this.isSyncing = true;
     this.notify('syncing');
 
+    let pushError: Error | null = null;
     try {
       // 1. Push pending changes
       await this.pushLocalChanges();
+    } catch (err: any) {
+      console.error('Push changes failed:', err);
+      pushError = err;
+    }
 
+    let pullError: Error | null = null;
+    try {
       // 2. Pull server updates
       const activeCampaignId = localStorage.getItem('activeCampaignId');
       if (activeCampaignId && activeCampaignId !== 'new') {
         await this.pullServerChanges(activeCampaignId);
       }
-
-      const status = await this.getStatus();
-      this.notify(status);
     } catch (err: any) {
-      console.error('Sync failed:', err);
+      console.error('Pull changes failed:', err);
+      pullError = err;
+    }
+
+    try {
       const status = await this.getStatus();
-      this.notify(status === 'conflict' ? 'conflict' : 'pending', err.message);
+      const finalError = pushError?.message || pullError?.message;
+      if (status === 'conflict') {
+        this.notify('conflict', finalError);
+      } else if (finalError) {
+        this.notify('pending', finalError);
+      } else {
+        this.notify(status);
+      }
+    } catch (err: any) {
+      console.error('Sync status notification failed:', err);
+      this.notify('pending', err.message);
     } finally {
       this.isSyncing = false;
     }

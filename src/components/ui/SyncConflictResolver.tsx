@@ -79,7 +79,8 @@ export const SyncConflictResolver: React.FC<SyncConflictResolverProps> = ({ onCl
             </div>
           ) : (
             conflicts.map((item) => {
-              const isDeletedOnServer = !item.serverPayload;
+              const isFailed = item.status === 'failed';
+              const isDeletedOnServer = !isFailed && !item.serverPayload;
               return (
                 <div key={item.id} className="p-4 bg-medieval-stone/20 rounded border border-medieval-gold/10 space-y-4">
                   <div className="flex justify-between items-start">
@@ -87,12 +88,16 @@ export const SyncConflictResolver: React.FC<SyncConflictResolverProps> = ({ onCl
                       {getEntityDisplayName(item)}
                     </span>
                     <span className="text-[9px] uppercase tracking-widest bg-red-900/30 text-red-300 border border-red-500/20 px-1.5 py-0.5 rounded flex-shrink-0">
-                      {isDeletedOnServer ? 'Deletado no Servidor' : 'Editado em Paralelo'}
+                      {isFailed ? 'Erro de Envio' : isDeletedOnServer ? 'Deletado no Servidor' : 'Editado em Paralelo'}
                     </span>
                   </div>
-
+ 
                   <div className="text-[11px] text-medieval-parchment/90 leading-relaxed bg-medieval-charcoal/40 p-2.5 rounded border border-medieval-gold/5">
-                    {isDeletedOnServer ? (
+                    {isFailed ? (
+                      <p className="text-red-400">
+                        Falha ao salvar na nuvem: <strong>{item.errorMessage || 'Erro desconhecido.'}</strong> Deseja re-enviar, descartar ou salvá-lo como um novo registro?
+                      </p>
+                    ) : isDeletedOnServer ? (
                       <p>Você editou este pergaminho localmente, mas ele foi **excluído** no servidor por outro jogador. Deseja re-enviar, descartar ou salvá-lo como um novo registro?</p>
                     ) : (
                       <p>
@@ -100,32 +105,38 @@ export const SyncConflictResolver: React.FC<SyncConflictResolverProps> = ({ onCl
                       </p>
                     )}
                   </div>
-
+ 
                   {/* Selectable Options */}
                   <div className="space-y-2 pt-1">
                     {[
                       {
                         key: 'discard' as const,
-                        title: isDeletedOnServer ? 'Descartar Minhas Edições' : 'Aceitar Versão da Nuvem',
-                        desc: isDeletedOnServer
+                        title: isFailed ? 'Descartar Edições Locais' : isDeletedOnServer ? 'Descartar Minhas Edições' : 'Aceitar Versão da Nuvem',
+                        desc: isFailed
+                          ? 'Descarta suas alterações locais para este item, removendo-o da fila de sincronização.'
+                          : isDeletedOnServer
                           ? 'Remove suas alterações locais deste item já que ele foi excluído no servidor por outro jogador.'
                           : 'Substitui seu rascunho local pela versão salva no servidor na nuvem.'
                       },
                       {
                         key: 'copy_as_new' as const,
                         title: 'Duplicar como Novo',
-                        desc: 'Mantém a versão atual que está no servidor e cria uma cópia separada com as suas edições locais.'
+                        desc: isFailed
+                          ? 'Gera uma cópia local independente deste item e remove o original da fila de sincronização.'
+                          : 'Mantém a versão atual que está no servidor e cria uma cópia separada com as suas edições locais.'
                       },
                       {
                         key: 'keep_mine' as const,
-                        title: 'Sobrescrever com a Minha',
-                        desc: 'Sobrescreve as edições da nuvem com as suas alterações locais atuais.'
+                        title: isFailed ? 'Tentar Re-enviar' : 'Sobrescrever com a Minha',
+                        desc: isFailed
+                          ? 'Tenta enviar novamente as suas edições locais para o servidor.'
+                          : 'Sobrescreve as edições da nuvem com as suas alterações locais atuais.'
                       }
                     ].map((opt) => {
                       const isSelected = selectedResolutions[item.id!] === opt.key;
                       const infoKey = `${item.id}-${opt.key}`;
                       const showInfo = !!activeInfo[infoKey];
-
+ 
                       return (
                         <div key={opt.key} className="space-y-1">
                           <div
@@ -148,7 +159,7 @@ export const SyncConflictResolver: React.FC<SyncConflictResolverProps> = ({ onCl
                               </div>
                               <span className="font-medieval text-[11px] uppercase tracking-wider">{opt.title}</span>
                             </div>
-
+ 
                             <button
                               type="button"
                               onClick={(e) => {
@@ -163,7 +174,7 @@ export const SyncConflictResolver: React.FC<SyncConflictResolverProps> = ({ onCl
                               <Info className="w-3.5 h-3.5" />
                             </button>
                           </div>
-
+ 
                           {/* Info panel */}
                           {showInfo && (
                             <div className="p-2 bg-medieval-stone/30 rounded border border-medieval-gold/10 text-[10px] text-medieval-silver leading-relaxed animate-fade-in font-serif italic">
@@ -179,10 +190,10 @@ export const SyncConflictResolver: React.FC<SyncConflictResolverProps> = ({ onCl
             })
           )}
         </div>
-
+ 
         {/* Footer */}
         <div className="border-t border-medieval-gold/15 pt-3 mt-4 shrink-0 flex justify-between items-center text-[10px] text-medieval-silver">
-          <span>{conflicts.length} conflito(s) restante(s)</span>
+          <span>{conflicts.length} pendência(s) restante(s)</span>
           
           <button
             disabled={!hasSelection || isProcessing}

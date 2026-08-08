@@ -5,6 +5,22 @@ import { SyncEngine } from '../services/sync';
 import { SyncOutboxRepository } from '../repositories/SyncOutboxRepository';
 import type { SyncOutbox, UserSession } from '../types';
 
+import { CampaignRepository } from '../repositories/CampaignRepository';
+import { CharacterRepository } from '../repositories/CharacterRepository';
+import { MemoryRepository } from '../repositories/MemoryRepository';
+import { MemoryCharacterRepository } from '../repositories/MemoryCharacterRepository';
+import { TokenRepository } from '../repositories/TokenRepository';
+import { MediaRepository } from '../repositories/MediaRepository';
+
+const RepositoryMap: Record<string, any> = {
+  campaign: CampaignRepository,
+  character: CharacterRepository,
+  memory: MemoryRepository,
+  memoryCharacter: MemoryCharacterRepository,
+  token: TokenRepository,
+  media: MediaRepository
+};
+
 interface SyncContextType {
   status: 'synced' | 'syncing' | 'pending' | 'conflict';
   error: string | null;
@@ -157,11 +173,17 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
         createdAt: new Date().toISOString()
       };
       
-      // Import the repositories dynamically to avoid circular references
-      const repoName = outbox.entityType.charAt(0).toUpperCase() + outbox.entityType.slice(1) + 'Repository';
-      const repo = await import(`../repositories/${repoName}`);
-      
-      await repo[repoName].save(payloadCopy);
+      const repo = RepositoryMap[outbox.entityType];
+      if (repo) {
+        if (outbox.entityType === 'media') {
+          const originalMedia = await db.media.get(outbox.entityId);
+          if (originalMedia) {
+            payloadCopy.blob = originalMedia.blob;
+            payloadCopy.thumbnail = originalMedia.thumbnail;
+          }
+        }
+        await repo.save(payloadCopy);
+      }
       await db.sync_outbox.delete(outboxId);
     }
 
