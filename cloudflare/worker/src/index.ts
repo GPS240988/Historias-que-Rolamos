@@ -366,7 +366,7 @@ export default {
 
           // Authorization Guard
           let isMaster = false;
-          if (entityType === 'campaign' && operation === 'CREATE') {
+          if (entityType === 'campaign' && (operation === 'CREATE' || !serverExists)) {
             // Anyone authenticated can create a new campaign
             isMaster = true;
           } else {
@@ -470,7 +470,7 @@ export default {
                 'INSERT OR REPLACE INTO campaigns (id, name, system, description, cover_image_id, start_date, created_at, updated_at, version, deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)'
               ).bind(payload.id, payload.name, payload.system, payload.description, payload.coverImageId || null, payload.startDate, payload.createdAt, payload.updatedAt, nextVersion).run();
 
-              if (operation === 'CREATE') {
+              if (operation === 'CREATE' || !serverExists) {
                 // Link creator as MASTER
                 await env.DB.prepare(
                   'INSERT OR IGNORE INTO campaign_members (campaign_id, user_id, role) VALUES (?, ?, ?)'

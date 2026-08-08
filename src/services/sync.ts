@@ -78,7 +78,7 @@ export const SyncEngine = {
     const pending = await SyncOutboxRepository.listPending();
     if (pending.length === 0) return;
 
-    // Upload raw binaries to R2 first
+    // Upload media binaries first (before metadata mutations)
     for (const item of pending) {
       if (item.entityType === 'media' && item.operation === 'CREATE') {
         await this.uploadMediaBinary(item.entityId);
@@ -94,31 +94,42 @@ export const SyncEngine = {
       payload: item.payload
     }));
 
-    const response = await fetch(`${API_BASE_URL}/api/sync`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ mutations })
-    });
+    // Cloudflare Workers free plan has tight CPU limits (10ms).
+    // Send mutations in chunks of 25 to avoid timeout with large campaigns.
+    const CHUNK_SIZE = 25;
+    const allResults: Array<{
+      outboxId: number;
+      status: 'success' | 'conflict';
+      serverVersion?: number;
+      serverPayload?: any;
+    }> = [];
 
-    if (!response.ok) {
-      throw new Error(`Server sync responded with status ${response.status}`);
+    for (let i = 0; i < mutations.length; i += CHUNK_SIZE) {
+      const chunk = mutations.slice(i, i + CHUNK_SIZE);
+
+      const response = await fetch(`${API_BASE_URL}/api/sync`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ mutations: chunk })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server sync responded with status ${response.status} on chunk ${Math.floor(i / CHUNK_SIZE) + 1}`);
+      }
+
+      const result = await response.json() as {
+        success: boolean;
+        results: typeof allResults;
+      };
+
+      allResults.push(...result.results);
     }
 
-    const result = await response.json() as {
-      success: boolean;
-      results: Array<{
-        outboxId: number;
-        status: 'success' | 'conflict';
-        serverVersion?: number;
-        serverPayload?: any;
-      }>;
-    };
-
     await db.transaction('rw', [db.sync_outbox, db.campaigns, db.characters, db.memories, db.tokens, db.memoryCharacters, db.media], async () => {
-      for (const res of result.results) {
+      for (const res of allResults) {
         const outboxItem = await db.sync_outbox.get(res.outboxId);
         if (!outboxItem) continue;
 
