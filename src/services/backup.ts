@@ -182,6 +182,13 @@ export const BackupService = {
       }
     });
 
+    // If authenticated, enqueue all imported data for cloud sync
+    if (localStorage.getItem('cloud_token')) {
+      const { SyncEngine } = await import('./sync');
+      await SyncEngine.enqueueAllLocalData();
+      SyncEngine.triggerSync();
+    }
+
     return campaignIds;
   },
 
@@ -291,6 +298,13 @@ export const BackupService = {
 
     if (onProgress) {
       onProgress(100);
+    }
+
+    // If authenticated, enqueue all imported data for cloud sync
+    if (localStorage.getItem('cloud_token')) {
+      const { SyncEngine } = await import('./sync');
+      await SyncEngine.enqueueAllLocalData();
+      SyncEngine.triggerSync();
     }
 
     return campaignIds;

@@ -297,5 +297,74 @@ export const SyncEngine = {
 
       localStorage.setItem(`lastSyncSequence_${campaignId}`, data.serverSequence.toString());
     });
+  },
+
+  /**
+   * Scans all local IndexedDB tables and enqueues any records that are NOT
+   * already in the sync_outbox. This ensures offline-created or imported
+   * data gets pushed to the cloud on the next sync cycle.
+   */
+  async enqueueAllLocalData() {
+    const campaigns = await db.campaigns.toArray();
+
+    for (const campaign of campaigns) {
+      // Enqueue campaign itself
+      await this.enqueueIfMissing('campaign', campaign.id, campaign, campaign.version || 0);
+
+      // Enqueue characters
+      const chars = await db.characters.where('campaignId').equals(campaign.id).toArray();
+      for (const char of chars) {
+        await this.enqueueIfMissing('character', char.id, char, char.version || 0);
+      }
+
+      // Enqueue memories
+      const mems = await db.memories.where('campaignId').equals(campaign.id).toArray();
+      for (const mem of mems) {
+        await this.enqueueIfMissing('memory', mem.id, mem, mem.version || 0);
+      }
+
+      // Enqueue memoryCharacters
+      const memoryIds = mems.map(m => m.id);
+      if (memoryIds.length > 0) {
+        const memChars = await db.memoryCharacters.where('memoryId').anyOf(memoryIds).toArray();
+        for (const mc of memChars) {
+          await this.enqueueIfMissing('memoryCharacter', mc.id, mc, mc.version || 0);
+        }
+      }
+
+      // Enqueue tokens
+      const toks = await db.tokens.where('campaignId').equals(campaign.id).toArray();
+      for (const tok of toks) {
+        await this.enqueueIfMissing('token', tok.id, tok, tok.version || 0);
+      }
+
+      // Enqueue media (metadata only — binary upload handled by pushLocalChanges)
+      const mediaItems = await db.media.where('campaignId').equals(campaign.id).toArray();
+      for (const med of mediaItems) {
+        // Strip binary blobs from the outbox payload to keep it lean
+        const { blob, thumbnail, ...metadataPayload } = med;
+        await this.enqueueIfMissing('media', med.id, metadataPayload, med.version || 0);
+      }
+    }
+  },
+
+  /**
+   * Helper: adds a sync_outbox entry for an entity only if one doesn't already exist.
+   */
+  async enqueueIfMissing(entityType: string, entityId: string, payload: any, baseVersion: number) {
+    const existing = await db.sync_outbox
+      .where('entityId')
+      .equals(entityId)
+      .first();
+
+    if (!existing) {
+      await SyncOutboxRepository.add({
+        entityType: entityType as any,
+        entityId,
+        operation: baseVersion > 0 ? 'UPDATE' : 'CREATE',
+        baseVersion,
+        payload
+      });
+    }
   }
 };

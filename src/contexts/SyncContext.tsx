@@ -99,7 +99,8 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsAuthenticated(true);
     setUsername(data.user.username);
     
-    // Run sync immediately after login
+    // Enqueue any local data that isn't already in the outbox, then sync
+    await SyncEngine.enqueueAllLocalData();
     SyncEngine.triggerSync();
   };
 
