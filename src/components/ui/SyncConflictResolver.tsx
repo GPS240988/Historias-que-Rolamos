@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useSync } from '../../contexts/SyncContext';
-import { ShieldAlert, X, RefreshCw } from 'lucide-react';
+import { ShieldAlert, X, RefreshCw, Info } from 'lucide-react';
 import type { SyncOutbox } from '../../types';
 
 interface SyncConflictResolverProps {
@@ -10,7 +10,9 @@ interface SyncConflictResolverProps {
 
 export const SyncConflictResolver: React.FC<SyncConflictResolverProps> = ({ onClose }) => {
   const { conflicts, resolveConflict, syncNow } = useSync();
-  const [resolvingId, setResolvingId] = useState<number | null>(null);
+  const [selectedResolutions, setSelectedResolutions] = useState<Record<number, 'keep_mine' | 'discard' | 'copy_as_new'>>({});
+  const [activeInfo, setActiveInfo] = useState<Record<string, boolean>>({});
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const getEntityDisplayName = (item: SyncOutbox) => {
     const typeNames: Record<string, string> = {
@@ -26,16 +28,25 @@ export const SyncConflictResolver: React.FC<SyncConflictResolverProps> = ({ onCl
     return `${typeNames[item.entityType] || item.entityType}: "${entityName}"`;
   };
 
-  const handleResolve = async (id: number, resolution: 'keep_mine' | 'discard' | 'copy_as_new') => {
-    setResolvingId(id);
+  const handleSyncAll = async () => {
+    setIsProcessing(true);
     try {
-      await resolveConflict(id, resolution);
+      for (const [outboxIdStr, resolution] of Object.entries(selectedResolutions)) {
+        const outboxId = parseInt(outboxIdStr, 10);
+        if (!isNaN(outboxId)) {
+          await resolveConflict(outboxId, resolution);
+        }
+      }
+      await syncNow();
+      onClose();
     } catch (e) {
-      console.error('Failed to resolve conflict:', e);
+      console.error('Failed to sync all conflicts:', e);
     } finally {
-      setResolvingId(null);
+      setIsProcessing(false);
     }
   };
+
+  const hasSelection = Object.keys(selectedResolutions).length > 0;
 
   return createPortal(
     <div className="fixed inset-0 z-[100] bg-[#000000]/85 backdrop-blur-sm flex justify-center items-center p-4">
@@ -49,6 +60,7 @@ export const SyncConflictResolver: React.FC<SyncConflictResolverProps> = ({ onCl
           <button
             onClick={onClose}
             className="p-1 rounded hover:bg-medieval-stone text-medieval-silver hover:text-medieval-gold transition-colors duration-200"
+            disabled={isProcessing}
           >
             <X className="w-4 h-4" />
           </button>
@@ -69,12 +81,12 @@ export const SyncConflictResolver: React.FC<SyncConflictResolverProps> = ({ onCl
             conflicts.map((item) => {
               const isDeletedOnServer = !item.serverPayload;
               return (
-                <div key={item.id} className="p-4 bg-medieval-stone/20 rounded border border-medieval-gold/10 space-y-3">
+                <div key={item.id} className="p-4 bg-medieval-stone/20 rounded border border-medieval-gold/10 space-y-4">
                   <div className="flex justify-between items-start">
                     <span className="font-medieval text-xs text-medieval-brightGold block">
                       {getEntityDisplayName(item)}
                     </span>
-                    <span className="text-[9px] uppercase tracking-widest bg-red-900/30 text-red-300 border border-red-500/20 px-1.5 py-0.5 rounded">
+                    <span className="text-[9px] uppercase tracking-widest bg-red-900/30 text-red-300 border border-red-500/20 px-1.5 py-0.5 rounded flex-shrink-0">
                       {isDeletedOnServer ? 'Deletado no Servidor' : 'Editado em Paralelo'}
                     </span>
                   </div>
@@ -89,31 +101,78 @@ export const SyncConflictResolver: React.FC<SyncConflictResolverProps> = ({ onCl
                     )}
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex flex-wrap gap-2 pt-1.5 justify-end">
-                    <button
-                      disabled={resolvingId === item.id}
-                      onClick={() => handleResolve(item.id!, 'discard')}
-                      className="px-3 py-1.5 text-[10px] btn-stone text-red-200 hover:text-white border border-medieval-wine/30 bg-medieval-wine/20"
-                    >
-                      {isDeletedOnServer ? 'Descartar Minhas Edições' : 'Aceitar Versão da Nuvem'}
-                    </button>
+                  {/* Selectable Options */}
+                  <div className="space-y-2 pt-1">
+                    {[
+                      {
+                        key: 'discard' as const,
+                        title: isDeletedOnServer ? 'Descartar Minhas Edições' : 'Aceitar Versão da Nuvem',
+                        desc: isDeletedOnServer
+                          ? 'Remove suas alterações locais deste item já que ele foi excluído no servidor por outro jogador.'
+                          : 'Substitui seu rascunho local pela versão salva no servidor na nuvem.'
+                      },
+                      {
+                        key: 'copy_as_new' as const,
+                        title: 'Duplicar como Novo',
+                        desc: 'Mantém a versão atual que está no servidor e cria uma cópia separada com as suas edições locais.'
+                      },
+                      {
+                        key: 'keep_mine' as const,
+                        title: 'Sobrescrever com a Minha',
+                        desc: 'Sobrescreve as edições da nuvem com as suas alterações locais atuais.'
+                      }
+                    ].map((opt) => {
+                      const isSelected = selectedResolutions[item.id!] === opt.key;
+                      const infoKey = `${item.id}-${opt.key}`;
+                      const showInfo = !!activeInfo[infoKey];
 
-                    <button
-                      disabled={resolvingId === item.id}
-                      onClick={() => handleResolve(item.id!, 'copy_as_new')}
-                      className="px-3 py-1.5 text-[10px] btn-stone"
-                    >
-                      Duplicar como Novo
-                    </button>
+                      return (
+                        <div key={opt.key} className="space-y-1">
+                          <div
+                            onClick={() => {
+                              if (!isProcessing) {
+                                setSelectedResolutions(prev => ({ ...prev, [item.id!]: opt.key }));
+                              }
+                            }}
+                            className={`flex items-center justify-between p-2.5 rounded border transition-all duration-300 cursor-pointer ${
+                              isSelected
+                                ? 'bg-medieval-gold/10 border-medieval-gold shadow-glow text-medieval-brightGold font-bold'
+                                : 'bg-medieval-charcoal/50 border-medieval-border/50 text-medieval-parchment hover:border-medieval-gold/40 hover:bg-medieval-stone/10'
+                            }`}
+                          >
+                            <div className="flex items-center space-x-2.5 select-none">
+                              <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center transition-all ${
+                                isSelected ? 'border-medieval-gold bg-medieval-gold/25' : 'border-medieval-silver/50'
+                              }`}>
+                                {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-medieval-gold" />}
+                              </div>
+                              <span className="font-medieval text-[11px] uppercase tracking-wider">{opt.title}</span>
+                            </div>
 
-                    <button
-                      disabled={resolvingId === item.id}
-                      onClick={() => handleResolve(item.id!, 'keep_mine')}
-                      className="px-3 py-1.5 text-[10px] btn-gold"
-                    >
-                      Sobrescrever com a Minha
-                    </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveInfo(prev => ({ ...prev, [infoKey]: !prev[infoKey] }));
+                              }}
+                              className={`p-1 rounded text-medieval-silver hover:text-medieval-gold hover:bg-medieval-stone/30 transition-colors duration-200 ${
+                                showInfo ? 'text-medieval-gold bg-medieval-stone/20' : ''
+                              }`}
+                              title="Mais informações"
+                            >
+                              <Info className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          {/* Info panel */}
+                          {showInfo && (
+                            <div className="p-2 bg-medieval-stone/30 rounded border border-medieval-gold/10 text-[10px] text-medieval-silver leading-relaxed animate-fade-in font-serif italic">
+                              {opt.desc}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );
@@ -124,11 +183,21 @@ export const SyncConflictResolver: React.FC<SyncConflictResolverProps> = ({ onCl
         {/* Footer */}
         <div className="border-t border-medieval-gold/15 pt-3 mt-4 shrink-0 flex justify-between items-center text-[10px] text-medieval-silver">
           <span>{conflicts.length} conflito(s) restante(s)</span>
+          
           <button
-            onClick={() => syncNow()}
-            className="flex items-center space-x-1 hover:text-medieval-gold transition-colors duration-200 font-medieval uppercase tracking-wider"
+            disabled={!hasSelection || isProcessing}
+            onClick={handleSyncAll}
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded transition-all duration-300 font-medieval uppercase tracking-wider border ${
+              hasSelection && !isProcessing
+                ? 'bg-medieval-gold/20 border-medieval-gold text-medieval-brightGold cursor-pointer hover:shadow-glow hover:bg-medieval-gold/30'
+                : 'bg-medieval-stone/20 border-medieval-border/50 text-medieval-silver/50 cursor-not-allowed opacity-50'
+            }`}
           >
-            <RefreshCw className="w-3.5 h-3.5" />
+            {isProcessing ? (
+              <div className="w-3.5 h-3.5 border-2 border-medieval-gold border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <RefreshCw className="w-3.5 h-3.5" />
+            )}
             <span>Sincronizar</span>
           </button>
         </div>

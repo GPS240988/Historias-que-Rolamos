@@ -119,6 +119,15 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [campaign, campaigns, activeCampaignId]);
 
+  // Immediately trigger sync when activeCampaignId changes to load cloud data (D1)
+  useEffect(() => {
+    if (activeCampaignId && activeCampaignId !== 'new') {
+      import('../services/sync').then(({ SyncEngine }) => {
+        SyncEngine.triggerSync();
+      });
+    }
+  }, [activeCampaignId]);
+
   useEffect(() => {
     if (campaignsList !== undefined) {
       setLoading(false);

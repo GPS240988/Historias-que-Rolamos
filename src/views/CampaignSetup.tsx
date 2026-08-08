@@ -3,11 +3,14 @@ import { useCampaign } from '../contexts/CampaignContext';
 import { useRouter } from '../contexts/RouterContext';
 import { BackupService } from '../services/backup';
 import { OperationOverlay } from '../components/ui/OperationOverlay';
+import { useSync } from '../contexts/SyncContext';
 import { Shield, BookOpen, PenTool, Image as ImageIcon, Upload } from 'lucide-react';
 
 export const CampaignSetup: React.FC = () => {
   const { createCampaign, campaigns, switchCampaign } = useCampaign();
   const { navigate } = useRouter();
+  const { isAuthenticated, username, login, register, logout } = useSync();
+
   const [name, setName] = useState('');
   const [system, setSystem] = useState('Tormenta20');
   const [description, setDescription] = useState('');
@@ -16,10 +19,104 @@ export const CampaignSetup: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Cloud sync states
+  const [cloudUsername, setCloudUsername] = useState('');
+  const [cloudPassword, setCloudPassword] = useState('');
+  const [cloudError, setCloudError] = useState<string | null>(null);
+  const [inviteCode, setInviteCode] = useState('');
+
   // Overlay states for backup restore
   const [progress, setProgress] = useState<number | null>(null);
   const [statusText, setStatusText] = useState('');
   const [operationResult, setOperationResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const handleCloudLogin = async () => {
+    if (!cloudUsername.trim() || !cloudPassword) {
+      setCloudError('Assinatura e chave obrigatórias.');
+      return;
+    }
+    setLoading(true);
+    setCloudError(null);
+    try {
+      await login(cloudUsername, cloudPassword);
+      setCloudUsername('');
+      setCloudPassword('');
+    } catch (err: any) {
+      setCloudError(err.message || 'Erro ao conectar com o Servidor.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCloudRegister = async () => {
+    if (!cloudUsername.trim() || !cloudPassword) {
+      setCloudError('Assinatura e chave obrigatórias.');
+      return;
+    }
+    setLoading(true);
+    setCloudError(null);
+    try {
+      await register(cloudUsername, cloudPassword);
+      setCloudUsername('');
+      setCloudPassword('');
+    } catch (err: any) {
+      setCloudError(err.message || 'Erro ao registrar assinatura.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleJoinCampaign = async () => {
+    if (!inviteCode.trim()) {
+      setError('Por favor, insira um código de convite válido.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+      const token = localStorage.getItem('cloud_token');
+      
+      const res = await fetch(`${API_BASE_URL}/api/campaigns/join`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ campaignId: inviteCode.trim() })
+      });
+
+      if (!res.ok) {
+        const err = await res.json() as { error?: string };
+        throw new Error(err.error || 'Código inválido ou sem acesso.');
+      }
+
+      const campaignId = inviteCode.trim();
+      const { CampaignRepository } = await import('../repositories/CampaignRepository');
+      
+      const newCampaignStub = {
+        id: campaignId,
+        name: 'Grimório Conectando...',
+        system: 'Carregando...',
+        description: 'Buscando crônicas na nuvem...',
+        startDate: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        version: 0
+      };
+
+      await CampaignRepository.save(newCampaignStub, false);
+      
+      const { SyncEngine } = await import('../services/sync');
+      await SyncEngine.pullServerChanges(campaignId);
+
+      switchCampaign(campaignId);
+      navigate({ type: 'dashboard' });
+    } catch (err: any) {
+      setError(err.message || 'Erro ao entrar na campanha.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -243,28 +340,109 @@ export const CampaignSetup: React.FC = () => {
             </button>
           </div>
 
-          {/* OR Divider and Import Backup Button */}
-          <div className="relative my-6 flex items-center justify-center">
-            <span className="absolute inset-x-0 h-px bg-medieval-gold/15 animate-pulse" />
-            <span className="relative bg-medieval-stone/95 px-3 text-[10px] uppercase font-medieval tracking-widest text-medieval-gold/60">
-              Ou se preferir
-            </span>
-          </div>
-
-          <div className="text-center">
-            <label className="btn-stone cursor-pointer py-2.5 px-4 text-xs font-medieval font-bold uppercase tracking-wider inline-flex items-center space-x-2 w-full justify-center">
-              <Upload className="w-4 h-4 text-medieval-gold" />
-              <span>Importar Grimório de um Backup (.zip/.json)</span>
-              <input
-                type="file"
-                accept=".json,.zip"
-                onChange={handleImportFile}
-                className="hidden"
-                disabled={loading}
-              />
-            </label>
-          </div>
         </form>
+
+        {/* Cloud Login / Join Campaign section */}
+        <div className="relative my-6 flex items-center justify-center">
+          <span className="absolute inset-x-0 h-px bg-medieval-gold/15 animate-pulse" />
+          <span className="relative bg-medieval-stone/95 px-3 text-[10px] uppercase font-medieval tracking-widest text-medieval-gold/60">
+            Ou acesse a Nuvem
+          </span>
+        </div>
+
+        {!isAuthenticated ? (
+          <div className="space-y-4 text-xs font-serif">
+            <p className="text-[11px] text-medieval-silver leading-relaxed text-center">
+              Conecte-se à nuvem para sincronizar seus manuscritos em tempo real ou resgatar campanhas existentes.
+            </p>
+            {cloudError && (
+              <div className="p-2.5 bg-medieval-wine/20 border border-medieval-wine/50 rounded text-red-300 text-xs">
+                {cloudError}
+              </div>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="flex flex-col space-y-1">
+                <label className="text-[9px] font-medieval text-medieval-gold uppercase tracking-wider pl-1">Usuário</label>
+                <input
+                  type="text"
+                  value={cloudUsername}
+                  onChange={(e) => setCloudUsername(e.target.value)}
+                  placeholder="Assinatura..."
+                  className="medieval-input text-xs"
+                  disabled={loading}
+                />
+              </div>
+              <div className="flex flex-col space-y-1">
+                <label className="text-[9px] font-medieval text-medieval-gold uppercase tracking-wider pl-1">Chave (Senha)</label>
+                <input
+                  type="password"
+                  value={cloudPassword}
+                  onChange={(e) => setCloudPassword(e.target.value)}
+                  placeholder="Palavra secreta..."
+                  className="medieval-input text-xs"
+                  disabled={loading}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleCloudLogin}
+                className="flex-1 btn-gold py-2 text-xs font-medieval uppercase tracking-wider cursor-pointer"
+                disabled={loading}
+              >
+                Conectar
+              </button>
+              <button
+                type="button"
+                onClick={handleCloudRegister}
+                className="flex-1 btn-stone py-2 text-xs font-medieval uppercase tracking-wider cursor-pointer"
+                disabled={loading}
+              >
+                Escrever Assinatura
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4 text-xs font-serif">
+            <div className="flex justify-between items-center text-xs">
+              <div>
+                <span className="text-medieval-silver">Conectado como:</span>{' '}
+                <strong className="text-medieval-brightGold font-medieval ml-1 text-sm">{username}</strong>
+              </div>
+              <button
+                type="button"
+                onClick={logout}
+                className="text-red-400 hover:text-red-300 underline font-medieval uppercase tracking-wider text-[10px] cursor-pointer"
+                disabled={loading}
+              >
+                Desconectar
+              </button>
+            </div>
+
+            <div className="border-t border-medieval-gold/10 pt-3 space-y-2">
+              <span className="block text-[10px] text-medieval-gold uppercase font-medieval pl-1 font-bold">Entrar em Grimório Existente</span>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value)}
+                  placeholder="Cole o código do Grimório aqui..."
+                  className="flex-1 medieval-input text-xs py-1.5"
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  onClick={handleJoinCampaign}
+                  className="btn-gold py-1.5 px-4 text-xs font-medieval uppercase tracking-wider cursor-pointer"
+                  disabled={loading}
+                >
+                  Entrar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Progress / Result overlay */}

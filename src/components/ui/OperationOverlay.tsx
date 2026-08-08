@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CheckCircle, XCircle, RefreshCw, X, Shield } from 'lucide-react';
 
 export type OperationResult = {
@@ -77,7 +78,7 @@ export const OperationOverlay: React.FC<OperationOverlayProps> = ({
   const isInProgress = isActive && !result;
   const progressValue = progress ?? 0;
 
-  return (
+  return createPortal(
     <div
       className={`fixed inset-0 z-[9999] flex items-center justify-center p-4 transition-all duration-300 ${
         visible && !animateOut ? 'opacity-100' : 'opacity-0 pointer-events-none'
@@ -290,6 +291,7 @@ export const OperationOverlay: React.FC<OperationOverlayProps> = ({
           to { width: 0%; }
         }
       `}</style>
-    </div>
+    </div>,
+    document.body
   );
 };

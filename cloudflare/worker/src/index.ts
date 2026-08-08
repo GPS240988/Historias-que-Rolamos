@@ -422,8 +422,14 @@ export default {
             // Parse JSON fields
             if (fullRow) {
               if (fullRow.evolutions) fullRow.evolutions = JSON.parse(fullRow.evolutions);
-              if (fullRow.hero_descriptions) fullRow.hero_descriptions = JSON.parse(fullRow.hero_descriptions);
-              if (fullRow.character_ids) fullRow.character_ids = JSON.parse(fullRow.character_ids);
+              if (fullRow.hero_descriptions) {
+                fullRow.heroDescriptions = JSON.parse(fullRow.hero_descriptions);
+                delete fullRow.hero_descriptions;
+              }
+              if (fullRow.character_ids) {
+                fullRow.characterIds = JSON.parse(fullRow.character_ids);
+                delete fullRow.character_ids;
+              }
               if (fullRow.tags) fullRow.tags = JSON.parse(fullRow.tags);
               if (fullRow.comments) fullRow.comments = JSON.parse(fullRow.comments);
               // Map snake_case keys back to camelCase for client if needed
@@ -444,6 +450,7 @@ export default {
               if (fullRow.memory_id) { fullRow.memoryId = fullRow.memory_id; delete fullRow.memory_id; }
               if (fullRow.character_id) { fullRow.characterId = fullRow.character_id; delete fullRow.character_id; }
               if (fullRow.level_reached) { fullRow.levelReached = fullRow.level_reached; delete fullRow.level_reached; }
+              if (fullRow.event_date) { fullRow.eventDate = fullRow.event_date; delete fullRow.event_date; }
             }
 
             results.push({
