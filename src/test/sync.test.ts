@@ -41,8 +41,8 @@ describe('Synchronization & Conflict Handling Tests', () => {
     vi.mocked(db.sync_outbox.where).mockImplementation(() => mockQuery([]) as any);
   });
 
-  describe('Outbox Integration', () => {
-    it('should queue pending CREATE mutation in outbox when saving new character', async () => {
+  describe('Server-Authoritative Write', () => {
+    it('should call the server immediately and apply server version locally when saving new character', async () => {
       const newChar = {
         id: 'char1',
         campaignId: 'c1',
@@ -62,22 +62,76 @@ describe('Synchronization & Conflict Handling Tests', () => {
       };
 
       vi.mocked(db.characters.get).mockResolvedValue(undefined); // Simulated brand new character
-      vi.mocked(db.sync_outbox.add).mockResolvedValue(1);
+
+      // Mock server response (success)
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          success: true,
+          results: [{ outboxId: 0, status: 'success', serverVersion: 1 }]
+        })
+      });
+      global.fetch = mockFetch;
 
       await CharacterRepository.save(newChar);
 
-      // Verify character put locally
+      // Verify server was called with the mutation
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/sync'),
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"entityType":"character"')
+        })
+      );
+
+      // Verify character put locally with server version
       expect(db.characters.put).toHaveBeenCalledWith(expect.objectContaining({
         id: 'char1',
-        version: 0
+        version: 1
       }));
+    });
 
-      // Verify outbox entry queued
-      expect(db.sync_outbox.add).toHaveBeenCalledWith(expect.objectContaining({
-        entityType: 'character',
-        entityId: 'char1',
-        operation: 'CREATE',
-        baseVersion: 0
+    it('should apply server version locally on conflict (server-authoritative)', async () => {
+      const existingChar = {
+        id: 'char1',
+        campaignId: 'c1',
+        playerName: 'Test Player',
+        name: 'Arkon',
+        class: 'Guerreiro',
+        level: 1,
+        hp: 12,
+        mp: 6,
+        characterType: 'hero' as const,
+        race: 'Humano',
+        origin: 'Gladiador',
+        concept: 'Combatente',
+        description: '',
+        notes: '',
+        createdAt: '2026-01-01T00:00:00Z',
+        version: 5
+      };
+
+      vi.mocked(db.characters.get).mockResolvedValue(existingChar);
+
+      const serverPayload = { id: 'char1', name: 'Arkon Server', version: 8 };
+
+      // Mock conflict response from Server
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          success: true,
+          results: [{ outboxId: 0, status: 'conflict', serverVersion: 8, serverPayload }]
+        })
+      });
+      global.fetch = mockFetch;
+
+      await CharacterRepository.save({ ...existingChar, name: 'Arkon Local' });
+
+      // Verify server version applied locally (server wins)
+      expect(db.characters.put).toHaveBeenCalledWith(expect.objectContaining({
+        id: 'char1',
+        name: 'Arkon Server',
+        version: 8
       }));
     });
   });
@@ -125,7 +179,7 @@ describe('Synchronization & Conflict Handling Tests', () => {
       expect(db.sync_outbox.delete).toHaveBeenCalledWith(1);
     });
 
-    it('should catch conflict on stale updates and update outbox status', async () => {
+    it('should auto-resolve conflict in favor of the server (server-authoritative)', async () => {
       const mockOutboxItem = {
         id: 2,
         entityType: 'character',
@@ -156,15 +210,15 @@ describe('Synchronization & Conflict Handling Tests', () => {
 
       await SyncEngine.pushLocalChanges();
 
-      // Verify local character NOT updated (keeps edit)
-      expect(db.characters.put).not.toHaveBeenCalled();
-
-      // Verify outbox updated with conflict status & server payload
-      expect(db.sync_outbox.update).toHaveBeenCalledWith(2, expect.objectContaining({
-        status: 'conflict',
-        serverVersion: 8,
-        serverPayload
+      // Verify SERVER version applied locally (server wins)
+      expect(db.characters.put).toHaveBeenCalledWith(expect.objectContaining({
+        id: 'char1',
+        name: 'Arkon Server',
+        version: 8
       }));
+
+      // Verify stale outbox entry is removed
+      expect(db.sync_outbox.delete).toHaveBeenCalledWith(2);
     });
   });
 });

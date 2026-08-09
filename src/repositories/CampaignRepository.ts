@@ -1,6 +1,5 @@
 import { db } from '../db';
 import type { Campaign } from '../types';
-import { SyncOutboxRepository } from './SyncOutboxRepository';
 
 export const CampaignRepository = {
   async get(id: string): Promise<Campaign | undefined> {
@@ -22,17 +21,27 @@ export const CampaignRepository = {
       updatedAt: new Date().toISOString()
     };
 
-    await db.campaigns.put(record);
-
-    if (isSyncTrigger) {
-      await SyncOutboxRepository.add({
-        entityType: 'campaign',
-        entityId: campaign.id,
-        operation: isNew ? 'CREATE' : 'UPDATE',
+    if (isSyncTrigger && localStorage.getItem('cloud_token')) {
+      const { SyncEngine } = await import('../services/sync');
+      await SyncEngine.performOnlineWrite(
+        'campaign',
+        campaign.id,
+        isNew ? 'CREATE' : 'UPDATE',
         baseVersion,
-        payload: record
-      });
-      import('../services/sync').then(({ SyncEngine }) => SyncEngine.triggerSync());
+        record,
+        async () => {
+          await db.campaigns.put(record);
+        },
+        async () => {
+          if (existing) {
+            await db.campaigns.put(existing);
+          } else {
+            await db.campaigns.delete(campaign.id);
+          }
+        }
+      );
+    } else {
+      await db.campaigns.put(record);
     }
   },
 
@@ -40,17 +49,23 @@ export const CampaignRepository = {
     const existing = await db.campaigns.get(id);
     if (!existing) return;
 
-    await db.campaigns.delete(id);
-
-    if (isSyncTrigger) {
-      await SyncOutboxRepository.add({
-        entityType: 'campaign',
-        entityId: id,
-        operation: 'DELETE',
-        baseVersion: existing.version || 0,
-        payload: null
-      });
-      import('../services/sync').then(({ SyncEngine }) => SyncEngine.triggerSync());
+    if (isSyncTrigger && localStorage.getItem('cloud_token')) {
+      const { SyncEngine } = await import('../services/sync');
+      await SyncEngine.performOnlineWrite(
+        'campaign',
+        id,
+        'DELETE',
+        existing.version || 0,
+        null,
+        async () => {
+          await db.campaigns.delete(id);
+        },
+        async () => {
+          await db.campaigns.put(existing);
+        }
+      );
+    } else {
+      await db.campaigns.delete(id);
     }
   }
 };

@@ -26,7 +26,7 @@ export const SettingsView: React.FC = () => {
   const [operationResult, setOperationResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [importedCampaignId, setImportedCampaignId] = useState<string | null>(null);
   const [campaignToDelete, setCampaignToDelete] = useState('');
-  
+
   const [cloudUsername, setCloudUsername] = useState('');
   const [cloudPassword, setCloudPassword] = useState('');
   const [inviteCode, setInviteCode] = useState('');
@@ -77,7 +77,7 @@ export const SettingsView: React.FC = () => {
     setLoading(true);
     try {
       await CampaignRepository.save(campaign);
-      
+
       // Save all existing records to outbox for initial push
       const chars = await db.characters.where('campaignId').equals(campaign.id).toArray();
       const { CharacterRepository } = await import('../repositories/CharacterRepository');
@@ -121,6 +121,33 @@ export const SettingsView: React.FC = () => {
     }
   };
 
+  const handleReconcileFromServer = async () => {
+    if (!campaign) return;
+    const confirmed = await confirm({
+      title: 'Reconciliar com a Nuvem',
+      message: 'Isso apagará TODOS os dados locais deste dispositivo e baixará a versão mais recente do servidor. Use apenas se os dados estiverem divergentes entre dispositivos. Continuar?',
+      confirmLabel: 'Reconciliar',
+      cancelLabel: 'Cancelar',
+      isDestructive: true,
+    });
+    if (!confirmed) return;
+
+    setLoading(true);
+    setOperationResult(null);
+    try {
+      const { SyncEngine } = await import('../services/sync');
+      await SyncEngine.resetFromServer(campaign.id);
+      setOperationResult({
+        type: 'success',
+        message: 'Dados reconciliados com a nuvem com sucesso!',
+      });
+    } catch (err: any) {
+      setOperationResult({ type: 'error', message: 'Erro ao reconciliar: ' + err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleJoinCampaign = async () => {
     if (!inviteCode.trim()) {
       setOperationResult({ type: 'error', message: 'Por favor, insira um código de convite válido.' });
@@ -130,7 +157,7 @@ export const SettingsView: React.FC = () => {
     try {
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
       const token = localStorage.getItem('cloud_token');
-      
+
       const res = await fetch(`${API_BASE_URL}/api/campaigns/join`, {
         method: 'POST',
         headers: {
@@ -158,7 +185,7 @@ export const SettingsView: React.FC = () => {
       };
 
       await CampaignRepository.save(newCampaignStub, false);
-      
+
       const { SyncEngine } = await import('../services/sync');
       await SyncEngine.pullServerChanges(campaignId);
 
@@ -557,6 +584,22 @@ export const SettingsView: React.FC = () => {
                   </button>
                 </div>
               </div>
+
+              {campaign && (
+                <div className="border-t border-medieval-gold/10 pt-3 space-y-2">
+                  <span className="block text-[10px] text-medieval-gold uppercase font-medieval pl-1">Reconciliar Dados</span>
+                  <p className="text-[10px] text-medieval-silver leading-relaxed pl-1">
+                    Se os dados estiverem divergentes entre dispositivos, apague os dados locais deste dispositivo e baixe a versão mais recente do servidor.
+                  </p>
+                  <button
+                    onClick={handleReconcileFromServer}
+                    className="w-full btn-stone py-2 text-xs font-medieval uppercase tracking-wider cursor-pointer"
+                    disabled={loading}
+                  >
+                    Reconciliar com a Nuvem
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

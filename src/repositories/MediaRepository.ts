@@ -1,6 +1,5 @@
 import { db } from '../db';
 import type { Media } from '../types';
-import { SyncOutboxRepository } from './SyncOutboxRepository';
 
 export const MediaRepository = {
   async get(id: string): Promise<Media | undefined> {
@@ -22,35 +21,27 @@ export const MediaRepository = {
       createdAt: media.createdAt || new Date().toISOString()
     };
 
-    await db.media.put(record);
-
-    if (isSyncTrigger) {
-      // Create metadata-only payload for the D1 change log
-      await SyncOutboxRepository.add({
-        entityType: 'media',
-        entityId: media.id,
-        operation: isNew ? 'CREATE' : 'UPDATE',
+    if (isSyncTrigger && localStorage.getItem('cloud_token')) {
+      const { SyncEngine } = await import('../services/sync');
+      await SyncEngine.performOnlineWrite(
+        'media',
+        media.id,
+        isNew ? 'CREATE' : 'UPDATE',
         baseVersion,
-        payload: {
-          id: record.id,
-          campaignId: record.campaignId,
-          filename: record.filename,
-          mimeType: record.mimeType,
-          size: record.size,
-          width: record.width,
-          height: record.height,
-          title: record.title,
-          description: record.description,
-          eventDate: record.eventDate,
-          relatedCharacterId: record.relatedCharacterId,
-          relatedMemoryId: record.relatedMemoryId,
-          tags: record.tags,
-          isGallery: record.isGallery,
-          createdAt: record.createdAt,
-          version: record.version
+        record,
+        async () => {
+          await db.media.put(record);
+        },
+        async () => {
+          if (existing) {
+            await db.media.put(existing);
+          } else {
+            await db.media.delete(media.id);
+          }
         }
-      });
-      import('../services/sync').then(({ SyncEngine }) => SyncEngine.triggerSync());
+      );
+    } else {
+      await db.media.put(record);
     }
   },
 
@@ -58,17 +49,23 @@ export const MediaRepository = {
     const existing = await db.media.get(id);
     if (!existing) return;
 
-    await db.media.delete(id);
-
-    if (isSyncTrigger) {
-      await SyncOutboxRepository.add({
-        entityType: 'media',
-        entityId: id,
-        operation: 'DELETE',
-        baseVersion: existing.version || 0,
-        payload: null
-      });
-      import('../services/sync').then(({ SyncEngine }) => SyncEngine.triggerSync());
+    if (isSyncTrigger && localStorage.getItem('cloud_token')) {
+      const { SyncEngine } = await import('../services/sync');
+      await SyncEngine.performOnlineWrite(
+        'media',
+        id,
+        'DELETE',
+        existing.version || 0,
+        null,
+        async () => {
+          await db.media.delete(id);
+        },
+        async () => {
+          await db.media.put(existing);
+        }
+      );
+    } else {
+      await db.media.delete(id);
     }
   }
 };

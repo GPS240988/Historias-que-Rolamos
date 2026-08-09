@@ -1,6 +1,5 @@
 import { db } from '../db';
 import type { Character } from '../types';
-import { SyncOutboxRepository } from './SyncOutboxRepository';
 
 export const CharacterRepository = {
   async get(id: string): Promise<Character | undefined> {
@@ -22,17 +21,27 @@ export const CharacterRepository = {
       updatedAt: new Date().toISOString()
     };
 
-    await db.characters.put(record);
-
-    if (isSyncTrigger) {
-      await SyncOutboxRepository.add({
-        entityType: 'character',
-        entityId: character.id,
-        operation: isNew ? 'CREATE' : 'UPDATE',
+    if (isSyncTrigger && localStorage.getItem('cloud_token')) {
+      const { SyncEngine } = await import('../services/sync');
+      await SyncEngine.performOnlineWrite(
+        'character',
+        character.id,
+        isNew ? 'CREATE' : 'UPDATE',
         baseVersion,
-        payload: record
-      });
-      import('../services/sync').then(({ SyncEngine }) => SyncEngine.triggerSync());
+        record,
+        async () => {
+          await db.characters.put(record);
+        },
+        async () => {
+          if (existing) {
+            await db.characters.put(existing);
+          } else {
+            await db.characters.delete(character.id);
+          }
+        }
+      );
+    } else {
+      await db.characters.put(record);
     }
   },
 
@@ -40,17 +49,23 @@ export const CharacterRepository = {
     const existing = await db.characters.get(id);
     if (!existing) return;
 
-    await db.characters.delete(id);
-
-    if (isSyncTrigger) {
-      await SyncOutboxRepository.add({
-        entityType: 'character',
-        entityId: id,
-        operation: 'DELETE',
-        baseVersion: existing.version || 0,
-        payload: null
-      });
-      import('../services/sync').then(({ SyncEngine }) => SyncEngine.triggerSync());
+    if (isSyncTrigger && localStorage.getItem('cloud_token')) {
+      const { SyncEngine } = await import('../services/sync');
+      await SyncEngine.performOnlineWrite(
+        'character',
+        id,
+        'DELETE',
+        existing.version || 0,
+        null,
+        async () => {
+          await db.characters.delete(id);
+        },
+        async () => {
+          await db.characters.put(existing);
+        }
+      );
+    } else {
+      await db.characters.delete(id);
     }
   }
 };

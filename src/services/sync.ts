@@ -1,7 +1,51 @@
-import { db, ChronicleDatabase } from '../db';
+import { db } from '../db';
+import type { ChronicleDatabase } from '../db';
 import { SyncOutboxRepository } from '../repositories/SyncOutboxRepository';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
+/**
+ * HTTP client for the Cloudflare Worker backend.
+ * The server (D1) is the SINGLE SOURCE OF TRUTH.
+ */
+export const ApiClient = {
+  getToken(): string | null {
+    return localStorage.getItem('cloud_token');
+  },
+
+  isAuthenticated(): boolean {
+    return !!this.getToken();
+  },
+
+  async request<T>(path: string, options: RequestInit = {}): Promise<T> {
+    const token = this.getToken();
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(options.headers as Record<string, string> || {})
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+
+    if (!res.ok) {
+      let message = `Erro do servidor (${res.status})`;
+      try {
+        const data = await res.json() as { error?: string };
+        message = data.error || message;
+      } catch { /* unchanged */ }
+      throw new ApiError(message, res.status);
+    }
+    return await res.json() as T;
+  }
+};
 
 function getTableName(entityType: string): keyof ChronicleDatabase {
   const tableMap: Record<string, keyof ChronicleDatabase> = {
@@ -163,11 +207,26 @@ export const SyncEngine = {
           }
           await db.sync_outbox.delete(res.outboxId);
         } else if (res.status === 'conflict') {
-          await db.sync_outbox.update(res.outboxId, {
-            status: 'conflict',
-            serverVersion: res.serverVersion,
-            serverPayload: res.serverPayload
-          });
+          // SERVER-AUTHORITATIVE: auto-resolve conflict in favor of the server.
+          // Apply the server version locally, remove the stale outbox entry.
+          if (res.serverPayload === null) {
+            // Server deleted the entity
+            const tableName = getTableName(outboxItem.entityType);
+            await (db[tableName] as any).delete(outboxItem.entityId);
+          } else if (outboxItem.operation !== 'DELETE') {
+            const tableName = getTableName(outboxItem.entityType);
+            const serverRecord = { ...res.serverPayload, version: res.serverVersion };
+            if (outboxItem.entityType === 'media') {
+              const existing = await db.media.get(outboxItem.entityId);
+              if (existing?.blob) {
+                serverRecord.blob = existing.blob;
+                serverRecord.thumbnail = existing.thumbnail;
+              }
+            }
+            await (db[tableName] as any).put(serverRecord);
+          }
+          // Remove stale outbox entry — no manual conflict resolution needed
+          await db.sync_outbox.delete(res.outboxId);
         } else if (res.status === 'error' as any || (res as any).status === 'error') {
           await db.sync_outbox.update(res.outboxId, {
             status: 'failed',
@@ -225,7 +284,7 @@ export const SyncEngine = {
 
     const data = await res.json() as {
       serverSequence: number;
-      changes: Array<{
+      changes?: Array<{
         sequence: number;
         entityType: string;
         entityId: string;
@@ -235,29 +294,33 @@ export const SyncEngine = {
       }>;
     };
 
-    if (data.changes.length === 0) {
-      localStorage.setItem(`lastSyncSequence_${campaignId}`, data.serverSequence.toString());
+    if (!data.changes || data.changes.length === 0) {
+      localStorage.setItem(`lastSyncSequence_${campaignId}`, (data.serverSequence || since).toString());
       return;
     }
 
+    const serverChanges = data.changes;
+
     await db.transaction('rw', [db.campaigns, db.characters, db.memories, db.tokens, db.memoryCharacters, db.media, db.sync_outbox], async () => {
-      for (const change of data.changes) {
+      for (const change of serverChanges) {
+        const tableName = getTableName(change.entityType);
+        const table = db[tableName];
+
+        // SERVER-AUTHORITATIVE: if there's a pending outbox item for this entity,
+        // the server version wins. Remove the stale outbox entry to avoid divergence.
         const outboxPending = await db.sync_outbox
           .where('entityId')
           .equals(change.entityId)
           .first();
-        
         if (outboxPending) {
-          continue;
+          await db.sync_outbox.delete(outboxPending.id!);
         }
 
-        const tableName = getTableName(change.entityType);
-        const table = db[tableName];
         if (change.operation === 'DELETE') {
           await (table as any).delete(change.entityId);
         } else {
           let payload = { ...change.payload };
-          
+
           if (change.entityType === 'media') {
             const existingMedia = await db.media.get(change.entityId);
             if (existingMedia && existingMedia.blob && existingMedia.blob.size > 0) {
@@ -366,5 +429,171 @@ export const SyncEngine = {
         payload
       });
     }
+  },
+
+  /**
+   * Server-authoritative reset: clears local IndexedDB and re-pulls ALL data
+   * from the server for the given campaign. Use this to reconcile diverged devices.
+   */
+  async resetFromServer(campaignId: string): Promise<void> {
+    const token = localStorage.getItem('cloud_token');
+    if (!token) throw new Error('Autentique-se primeiro.');
+    if (!navigator.onLine) throw new Error('Sem conexão com a internet.');
+
+    // Clear all local tables
+    await db.clearAll();
+
+    // Reset sync sequence so we pull everything
+    localStorage.removeItem(`lastSyncSequence_${campaignId}`);
+
+    // Pull all server changes (since=0 → full snapshot)
+    await this.pullServerChanges(campaignId);
+
+    // Also pull the campaign itself (it's in the change_log)
+    // The pullServerChanges handles campaign + children via change_log.
+    this.notify('synced');
+  },
+
+  async performOnlineWrite<T>(
+    entityType: 'campaign' | 'character' | 'memory' | 'memoryCharacter' | 'token' | 'media',
+    entityId: string,
+    operation: 'CREATE' | 'UPDATE' | 'DELETE',
+    baseVersion: number,
+    payload: any,
+    localWrite: () => Promise<T>,
+    localRollback?: () => Promise<void>
+  ): Promise<T> {
+    const token = localStorage.getItem('cloud_token');
+    if (!token) {
+      return await localWrite();
+    }
+
+    if (!navigator.onLine) {
+      throw new Error('Sem conexão com a internet. O grimório na nuvem exige internet para salvar alterações.');
+    }
+
+    // Special case for media CREATE: upload the binary file first before pushing metadata mutation
+    if (entityType === 'media' && operation === 'CREATE') {
+      // We must write locally first because uploadMediaBinary reads the blob/thumbnail from db.media
+      await localWrite();
+      try {
+        await this.uploadMediaBinary(entityId);
+      } catch (err: any) {
+        if (localRollback) {
+          await localRollback();
+        }
+        throw err;
+      }
+    }
+
+    let payloadToSend = payload;
+    if (entityType === 'media' && payload) {
+      // Exclude binary blobs from metadata sync request body
+      const { blob, thumbnail, ...rest } = payload;
+      payloadToSend = rest;
+    }
+
+    // Call the server immediately
+    const response = await fetch(`${API_BASE_URL}/api/sync`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        mutations: [
+          {
+            outboxId: 0, // dummy id
+            entityType,
+            entityId,
+            operation,
+            baseVersion,
+            payload: payloadToSend
+          }
+        ]
+      })
+    });
+
+    if (!response.ok) {
+      if (entityType === 'media' && operation === 'CREATE' && localRollback) {
+        await localRollback();
+      }
+      throw new Error(`O servidor respondeu com status ${response.status}`);
+    }
+
+    const result = await response.json() as {
+      success: boolean;
+      results: Array<{
+        outboxId: number;
+        status: 'success' | 'conflict' | 'error';
+        serverVersion?: number;
+        serverPayload?: any;
+        error?: string;
+      }>;
+    };
+
+    const res = result.results?.[0];
+    if (!res) {
+      throw new Error('Resposta vazia do servidor.');
+    }
+
+    if (res.status === 'error') {
+      if (entityType === 'media' && operation === 'CREATE' && localRollback) {
+        await localRollback();
+      }
+      throw new Error(res.error || 'Erro ao sincronizar alteração com o servidor.');
+    }
+
+    if (res.status === 'conflict') {
+      // SERVER-AUTHORITATIVE: apply the server's version locally.
+      // This prevents devices from diverging — the server is the source of truth.
+      if (entityType === 'media' && operation === 'CREATE' && localRollback) {
+        await localRollback();
+      }
+      if (res.serverPayload === null) {
+        // Server deleted the entity — remove locally
+        const tableName = getTableName(entityType);
+        await (db[tableName] as any).delete(entityId);
+      } else if (operation !== 'DELETE') {
+        const tableName = getTableName(entityType);
+        const serverRecord = { ...res.serverPayload, version: res.serverVersion };
+        if (entityType === 'media') {
+          // Preserve local binary blobs if present
+          const existing = await db.media.get(entityId);
+          if (existing?.blob) {
+            serverRecord.blob = existing.blob;
+            serverRecord.thumbnail = existing.thumbnail;
+          }
+        }
+        await (db[tableName] as any).put(serverRecord);
+      }
+      // Trigger background sync to pull other users' updates
+      this.triggerSync();
+      return null as any;
+    }
+
+    // Update local DB (success)
+    if (operation !== 'DELETE') {
+      if (entityType !== 'media') {
+        const record = { ...payload, version: res.serverVersion };
+        const tableName = getTableName(entityType);
+        await (db[tableName] as any).put(record);
+      } else {
+        // Update version for media record already inserted locally
+        const record = await db.media.get(entityId);
+        if (record) {
+          record.version = res.serverVersion;
+          await db.media.put(record);
+        }
+      }
+    } else {
+      // It's a DELETE operation
+      await localWrite();
+    }
+
+    // Trigger background sync to pull other users' updates
+    this.triggerSync();
+
+    return null as any;
   }
 };

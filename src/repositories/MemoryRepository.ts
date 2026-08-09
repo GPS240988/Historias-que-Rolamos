@@ -1,6 +1,5 @@
 import { db } from '../db';
 import type { Memory } from '../types';
-import { SyncOutboxRepository } from './SyncOutboxRepository';
 
 export const MemoryRepository = {
   async get(id: string): Promise<Memory | undefined> {
@@ -22,17 +21,27 @@ export const MemoryRepository = {
       updatedAt: new Date().toISOString()
     };
 
-    await db.memories.put(record);
-
-    if (isSyncTrigger) {
-      await SyncOutboxRepository.add({
-        entityType: 'memory',
-        entityId: memory.id,
-        operation: isNew ? 'CREATE' : 'UPDATE',
+    if (isSyncTrigger && localStorage.getItem('cloud_token')) {
+      const { SyncEngine } = await import('../services/sync');
+      await SyncEngine.performOnlineWrite(
+        'memory',
+        memory.id,
+        isNew ? 'CREATE' : 'UPDATE',
         baseVersion,
-        payload: record
-      });
-      import('../services/sync').then(({ SyncEngine }) => SyncEngine.triggerSync());
+        record,
+        async () => {
+          await db.memories.put(record);
+        },
+        async () => {
+          if (existing) {
+            await db.memories.put(existing);
+          } else {
+            await db.memories.delete(memory.id);
+          }
+        }
+      );
+    } else {
+      await db.memories.put(record);
     }
   },
 
@@ -40,17 +49,23 @@ export const MemoryRepository = {
     const existing = await db.memories.get(id);
     if (!existing) return;
 
-    await db.memories.delete(id);
-
-    if (isSyncTrigger) {
-      await SyncOutboxRepository.add({
-        entityType: 'memory',
-        entityId: id,
-        operation: 'DELETE',
-        baseVersion: existing.version || 0,
-        payload: null
-      });
-      import('../services/sync').then(({ SyncEngine }) => SyncEngine.triggerSync());
+    if (isSyncTrigger && localStorage.getItem('cloud_token')) {
+      const { SyncEngine } = await import('../services/sync');
+      await SyncEngine.performOnlineWrite(
+        'memory',
+        id,
+        'DELETE',
+        existing.version || 0,
+        null,
+        async () => {
+          await db.memories.delete(id);
+        },
+        async () => {
+          await db.memories.put(existing);
+        }
+      );
+    } else {
+      await db.memories.delete(id);
     }
   }
 };

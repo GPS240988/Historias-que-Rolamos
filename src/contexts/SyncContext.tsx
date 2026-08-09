@@ -65,12 +65,12 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Run synchronization on startup, connectivity restore, and focus
     const runSync = () => SyncEngine.triggerSync();
-    
+
     // Period sync every 45s
     const interval = setInterval(runSync, 45000);
     window.addEventListener('online', runSync);
     window.addEventListener('focus', runSync);
-    
+
     runSync(); // Initial sync
 
     return () => {
@@ -98,9 +98,18 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('cloud_username', data.user.username);
     setIsAuthenticated(true);
     setUsername(data.user.username);
-    
-    // Enqueue any local data that isn't already in the outbox, then sync
-    await SyncEngine.enqueueAllLocalData();
+
+    // Server-authoritative: do NOT enqueue all local data on login.
+    // This caused mass conflicts when multiple devices had diverged.
+    // Instead, pull the server state for the active campaign.
+    const activeCampaignId = localStorage.getItem('activeCampaignId');
+    if (activeCampaignId && activeCampaignId !== 'new') {
+      try {
+        await SyncEngine.pullServerChanges(activeCampaignId);
+      } catch (err) {
+        console.warn('Failed to pull server changes on login:', err);
+      }
+    }
     SyncEngine.triggerSync();
   };
 
@@ -173,7 +182,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
         version: 0,
         createdAt: new Date().toISOString()
       };
-      
+
       const repo = RepositoryMap[outbox.entityType];
       if (repo) {
         if (outbox.entityType === 'media') {

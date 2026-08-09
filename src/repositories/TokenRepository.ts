@@ -1,6 +1,5 @@
 import { db } from '../db';
 import type { Token } from '../types';
-import { SyncOutboxRepository } from './SyncOutboxRepository';
 
 export const TokenRepository = {
   async get(id: string): Promise<Token | undefined> {
@@ -22,17 +21,27 @@ export const TokenRepository = {
       updatedAt: new Date().toISOString()
     };
 
-    await db.tokens.put(record);
-
-    if (isSyncTrigger) {
-      await SyncOutboxRepository.add({
-        entityType: 'token',
-        entityId: token.id,
-        operation: isNew ? 'CREATE' : 'UPDATE',
+    if (isSyncTrigger && localStorage.getItem('cloud_token')) {
+      const { SyncEngine } = await import('../services/sync');
+      await SyncEngine.performOnlineWrite(
+        'token',
+        token.id,
+        isNew ? 'CREATE' : 'UPDATE',
         baseVersion,
-        payload: record
-      });
-      import('../services/sync').then(({ SyncEngine }) => SyncEngine.triggerSync());
+        record,
+        async () => {
+          await db.tokens.put(record);
+        },
+        async () => {
+          if (existing) {
+            await db.tokens.put(existing);
+          } else {
+            await db.tokens.delete(token.id);
+          }
+        }
+      );
+    } else {
+      await db.tokens.put(record);
     }
   },
 
@@ -40,17 +49,23 @@ export const TokenRepository = {
     const existing = await db.tokens.get(id);
     if (!existing) return;
 
-    await db.tokens.delete(id);
-
-    if (isSyncTrigger) {
-      await SyncOutboxRepository.add({
-        entityType: 'token',
-        entityId: id,
-        operation: 'DELETE',
-        baseVersion: existing.version || 0,
-        payload: null
-      });
-      import('../services/sync').then(({ SyncEngine }) => SyncEngine.triggerSync());
+    if (isSyncTrigger && localStorage.getItem('cloud_token')) {
+      const { SyncEngine } = await import('../services/sync');
+      await SyncEngine.performOnlineWrite(
+        'token',
+        id,
+        'DELETE',
+        existing.version || 0,
+        null,
+        async () => {
+          await db.tokens.delete(id);
+        },
+        async () => {
+          await db.tokens.put(existing);
+        }
+      );
+    } else {
+      await db.tokens.delete(id);
     }
   }
 };
