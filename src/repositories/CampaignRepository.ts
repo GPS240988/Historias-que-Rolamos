@@ -10,9 +10,8 @@ export const CampaignRepository = {
     return await db.campaigns.toArray();
   },
 
-  async save(campaign: Campaign, isSyncTrigger: boolean = true): Promise<void> {
+  async save(campaign: Campaign, _isSyncTrigger: boolean = true): Promise<void> {
     const existing = await db.campaigns.get(campaign.id);
-    const isNew = !existing;
     const baseVersion = existing?.version || 0;
 
     const record: Campaign = {
@@ -21,51 +20,11 @@ export const CampaignRepository = {
       updatedAt: new Date().toISOString()
     };
 
-    if (isSyncTrigger && localStorage.getItem('cloud_token')) {
-      const { SyncEngine } = await import('../services/sync');
-      await SyncEngine.performOnlineWrite(
-        'campaign',
-        campaign.id,
-        isNew ? 'CREATE' : 'UPDATE',
-        baseVersion,
-        record,
-        async () => {
-          await db.campaigns.put(record);
-        },
-        async () => {
-          if (existing) {
-            await db.campaigns.put(existing);
-          } else {
-            await db.campaigns.delete(campaign.id);
-          }
-        }
-      );
-    } else {
-      await db.campaigns.put(record);
-    }
+    await db.campaigns.put(record);
   },
 
-  async delete(id: string, isSyncTrigger: boolean = true): Promise<void> {
-    const existing = await db.campaigns.get(id);
-    if (!existing) return;
-
-    if (isSyncTrigger && localStorage.getItem('cloud_token')) {
-      const { SyncEngine } = await import('../services/sync');
-      await SyncEngine.performOnlineWrite(
-        'campaign',
-        id,
-        'DELETE',
-        existing.version || 0,
-        null,
-        async () => {
-          await db.campaigns.delete(id);
-        },
-        async () => {
-          await db.campaigns.put(existing);
-        }
-      );
-    } else {
-      await db.campaigns.delete(id);
-    }
+  async delete(id: string, _isSyncTrigger: boolean = true): Promise<void> {
+    await db.campaigns.delete(id);
   }
 };
+

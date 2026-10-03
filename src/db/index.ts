@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { Campaign, Character, Memory, Media, Token, MemoryCharacter, SyncOutbox } from '../types';
+import type { Campaign, Character, Memory, Media, Token, MemoryCharacter } from '../types';
 
 export class ChronicleDatabase extends Dexie {
   campaigns!: Table<Campaign, string>;
@@ -8,7 +8,6 @@ export class ChronicleDatabase extends Dexie {
   media!: Table<Media, string>;
   tokens!: Table<Token, string>;
   memoryCharacters!: Table<MemoryCharacter, string>;
-  sync_outbox!: Table<SyncOutbox, number>;
 
   constructor() {
     super('ChroniclesOfTheJourney');
@@ -26,6 +25,11 @@ export class ChronicleDatabase extends Dexie {
       memoryCharacters: 'id, memoryId, characterId, levelReached',
       sync_outbox: '++id, entityType, entityId, status'
     });
+
+    // Version 3: Pure local-first architecture (removes cloud sync outbox table)
+    this.version(3).stores({
+      sync_outbox: null
+    });
   }
 
   /**
@@ -34,7 +38,7 @@ export class ChronicleDatabase extends Dexie {
   async clearAll() {
     await this.transaction(
       'rw',
-      [this.campaigns, this.characters, this.memories, this.media, this.tokens, this.memoryCharacters, this.sync_outbox],
+      [this.campaigns, this.characters, this.memories, this.media, this.tokens, this.memoryCharacters],
       async () => {
         await this.campaigns.clear();
         await this.characters.clear();
@@ -42,7 +46,6 @@ export class ChronicleDatabase extends Dexie {
         await this.media.clear();
         await this.tokens.clear();
         await this.memoryCharacters.clear();
-        await this.sync_outbox.clear();
       }
     );
   }

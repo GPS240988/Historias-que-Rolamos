@@ -70,7 +70,7 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const deleteCampaign = async (id: string) => {
-    await db.transaction('rw', [db.campaigns, db.characters, db.memories, db.tokens, db.memoryCharacters, db.media, db.sync_outbox], async () => {
+    await db.transaction('rw', [db.campaigns, db.characters, db.memories, db.tokens, db.memoryCharacters, db.media], async () => {
       // Find memories to delete relations
       const memories = await db.memories.where('campaignId').equals(id).toArray();
       const memoryIds = memories.map(m => m.id);
@@ -118,15 +118,6 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       localStorage.removeItem('activeCampaignId');
     }
   }, [campaign, campaigns, activeCampaignId]);
-
-  // Immediately trigger sync when activeCampaignId changes to load cloud data (D1)
-  useEffect(() => {
-    if (activeCampaignId && activeCampaignId !== 'new') {
-      import('../services/sync').then(({ SyncEngine }) => {
-        SyncEngine.triggerSync();
-      });
-    }
-  }, [activeCampaignId]);
 
   useEffect(() => {
     if (campaignsList !== undefined) {

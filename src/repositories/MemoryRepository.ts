@@ -10,9 +10,8 @@ export const MemoryRepository = {
     return await db.memories.where('campaignId').equals(campaignId).toArray();
   },
 
-  async save(memory: Memory, isSyncTrigger: boolean = true): Promise<void> {
+  async save(memory: Memory, _isSyncTrigger: boolean = true): Promise<void> {
     const existing = await db.memories.get(memory.id);
-    const isNew = !existing;
     const baseVersion = existing?.version || 0;
 
     const record: Memory = {
@@ -21,51 +20,11 @@ export const MemoryRepository = {
       updatedAt: new Date().toISOString()
     };
 
-    if (isSyncTrigger && localStorage.getItem('cloud_token')) {
-      const { SyncEngine } = await import('../services/sync');
-      await SyncEngine.performOnlineWrite(
-        'memory',
-        memory.id,
-        isNew ? 'CREATE' : 'UPDATE',
-        baseVersion,
-        record,
-        async () => {
-          await db.memories.put(record);
-        },
-        async () => {
-          if (existing) {
-            await db.memories.put(existing);
-          } else {
-            await db.memories.delete(memory.id);
-          }
-        }
-      );
-    } else {
-      await db.memories.put(record);
-    }
+    await db.memories.put(record);
   },
 
-  async delete(id: string, isSyncTrigger: boolean = true): Promise<void> {
-    const existing = await db.memories.get(id);
-    if (!existing) return;
-
-    if (isSyncTrigger && localStorage.getItem('cloud_token')) {
-      const { SyncEngine } = await import('../services/sync');
-      await SyncEngine.performOnlineWrite(
-        'memory',
-        id,
-        'DELETE',
-        existing.version || 0,
-        null,
-        async () => {
-          await db.memories.delete(id);
-        },
-        async () => {
-          await db.memories.put(existing);
-        }
-      );
-    } else {
-      await db.memories.delete(id);
-    }
+  async delete(id: string, _isSyncTrigger: boolean = true): Promise<void> {
+    await db.memories.delete(id);
   }
 };
+

@@ -1,24 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useCampaign } from '../contexts/CampaignContext';
 import { useConfirmation } from '../contexts/ConfirmationContext';
-import { BackupService } from '../services/backup';
+import { BackupService, type LastImportInfo } from '../services/backup';
 import { OperationOverlay } from '../components/ui/OperationOverlay';
-import { useSync } from '../contexts/SyncContext';
-import { CampaignRepository } from '../repositories/CampaignRepository';
-import { db } from '../db';
 import {
   Upload,
   Trash2,
   Archive,
   HardDrive,
   ChevronRight,
-  BookOpen
+  BookOpen,
+  FileJson,
+  Layers
 } from 'lucide-react';
 
 export const SettingsView: React.FC = () => {
   const { campaign, campaigns, switchCampaign, deleteCampaign, theme, setTheme } = useCampaign();
   const { confirm } = useConfirmation();
-  const { isAuthenticated, username, login, register, logout, syncNow } = useSync();
 
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
@@ -27,179 +25,16 @@ export const SettingsView: React.FC = () => {
   const [importedCampaignId, setImportedCampaignId] = useState<string | null>(null);
   const [campaignToDelete, setCampaignToDelete] = useState('');
 
-  const [cloudUsername, setCloudUsername] = useState('');
-  const [cloudPassword, setCloudPassword] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
-  const [cloudError, setCloudError] = useState<string | null>(null);
-
   // Storage usage details
   const [storageUsage, setStorageUsage] = useState<{ used: string; total: string; percent: number } | null>(null);
 
-  const handleCloudLogin = async () => {
-    if (!cloudUsername.trim() || !cloudPassword) {
-      setCloudError('Assinatura e chave obrigatórias.');
-      return;
-    }
-    setLoading(true);
-    setCloudError(null);
-    try {
-      await login(cloudUsername, cloudPassword);
-      setCloudUsername('');
-      setCloudPassword('');
-    } catch (err: any) {
-      setCloudError(err.message || 'Erro ao conectar com o Servidor.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Versioning info
+  const [currentSequence, setCurrentSequence] = useState<number>(() => BackupService.getCurrentExportSequence());
+  const [lastImport, setLastImport] = useState<LastImportInfo | null>(() => BackupService.getLastImportInfo());
 
-  const handleCloudRegister = async () => {
-    if (!cloudUsername.trim() || !cloudPassword) {
-      setCloudError('Assinatura e chave obrigatórias.');
-      return;
-    }
-    setLoading(true);
-    setCloudError(null);
-    try {
-      await register(cloudUsername, cloudPassword);
-      setCloudUsername('');
-      setCloudPassword('');
-      setOperationResult({ type: 'success', message: 'Assinatura criada e conectada com sucesso!' });
-    } catch (err: any) {
-      setCloudError(err.message || 'Erro ao registrar assinatura.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSyncCampaign = async () => {
-    if (!campaign) return;
-    setLoading(true);
-    try {
-      await CampaignRepository.save(campaign);
-
-      // Save all existing records to outbox for initial push
-      const chars = await db.characters.where('campaignId').equals(campaign.id).toArray();
-      const { CharacterRepository } = await import('../repositories/CharacterRepository');
-      for (const char of chars) {
-        await CharacterRepository.save(char);
-      }
-
-      const mems = await db.memories.where('campaignId').equals(campaign.id).toArray();
-      const { MemoryRepository } = await import('../repositories/MemoryRepository');
-      for (const mem of mems) {
-        await MemoryRepository.save(mem);
-      }
-
-      const memoryIds = mems.map(m => m.id);
-      if (memoryIds.length > 0) {
-        const memChars = await db.memoryCharacters.where('memoryId').anyOf(memoryIds).toArray();
-        const { MemoryCharacterRepository } = await import('../repositories/MemoryCharacterRepository');
-        for (const mc of memChars) {
-          await MemoryCharacterRepository.save(mc);
-        }
-      }
-
-      const toks = await db.tokens.where('campaignId').equals(campaign.id).toArray();
-      const { TokenRepository } = await import('../repositories/TokenRepository');
-      for (const tok of toks) {
-        await TokenRepository.save(tok);
-      }
-
-      const media = await db.media.where('campaignId').equals(campaign.id).toArray();
-      const { MediaRepository } = await import('../repositories/MediaRepository');
-      for (const med of media) {
-        await MediaRepository.save(med);
-      }
-
-      setOperationResult({ type: 'success', message: 'Grimório ativo sincronizado com a Nuvem!' });
-      syncNow();
-    } catch (err: any) {
-      setOperationResult({ type: 'error', message: 'Erro ao ativar sincronização: ' + err.message });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleReconcileFromServer = async () => {
-    if (!campaign) return;
-    const confirmed = await confirm({
-      title: 'Reconciliar com a Nuvem',
-      message: 'Isso apagará TODOS os dados locais deste dispositivo e baixará a versão mais recente do servidor. Use apenas se os dados estiverem divergentes entre dispositivos. Continuar?',
-      confirmLabel: 'Reconciliar',
-      cancelLabel: 'Cancelar',
-      isDestructive: true,
-    });
-    if (!confirmed) return;
-
-    setLoading(true);
-    setOperationResult(null);
-    try {
-      const { SyncEngine } = await import('../services/sync');
-      await SyncEngine.resetFromServer(campaign.id);
-      setOperationResult({
-        type: 'success',
-        message: 'Dados reconciliados com a nuvem com sucesso!',
-      });
-    } catch (err: any) {
-      setOperationResult({ type: 'error', message: 'Erro ao reconciliar: ' + err.message });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleJoinCampaign = async () => {
-    if (!inviteCode.trim()) {
-      setOperationResult({ type: 'error', message: 'Por favor, insira um código de convite válido.' });
-      return;
-    }
-    setLoading(true);
-    try {
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
-      const token = localStorage.getItem('cloud_token');
-
-      const res = await fetch(`${API_BASE_URL}/api/campaigns/join`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ campaignId: inviteCode.trim() })
-      });
-
-      if (!res.ok) {
-        const err = await res.json() as { error?: string };
-        throw new Error(err.error || 'Código inválido ou sem acesso.');
-      }
-
-      const campaignId = inviteCode.trim();
-      const newCampaignStub = {
-        id: campaignId,
-        name: 'Grimório Conectando...',
-        system: 'Carregando...',
-        description: 'Buscando crônicas na nuvem...',
-        startDate: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        version: 0
-      };
-
-      await CampaignRepository.save(newCampaignStub, false);
-
-      const { SyncEngine } = await import('../services/sync');
-      await SyncEngine.pullServerChanges(campaignId);
-
-      setOperationResult({
-        type: 'success',
-        message: 'Entrou no Grimório compartilhado com sucesso!',
-      });
-      setImportedCampaignId(campaignId);
-      setInviteCode('');
-    } catch (err: any) {
-      setOperationResult({ type: 'error', message: err.message || 'Erro ao entrar na campanha.' });
-    } finally {
-      setLoading(false);
-    }
+  const refreshVersionInfo = () => {
+    setCurrentSequence(BackupService.getCurrentExportSequence());
+    setLastImport(BackupService.getLastImportInfo());
   };
 
   useEffect(() => {
@@ -213,59 +48,45 @@ export const SettingsView: React.FC = () => {
     }
   }, [operationResult]);
 
-  const handleSeedCoraçãoRubi = async () => {
-    if (!campaign) {
-      setOperationResult({ type: 'error', message: 'Crie uma campanha primeiro antes de alimentar as crônicas.' });
-      return;
-    }
-
-    const confirmed = await confirm({
-      title: 'Carregar Crônica',
-      message: 'Isso carregará as 20 memórias e crônicas completas do livro Coração de Rubi na sua campanha atual. Continuar?',
-      confirmLabel: 'Carregar',
-      cancelLabel: 'Cancelar',
-    });
-    if (!confirmed) return;
-
+  const handleExportJSON = async () => {
     setLoading(true);
     setOperationResult(null);
     setProgress(50);
-    setStatusText('Consultando o Grimório do Coração de Rubi...');
-
+    setStatusText('Varrendo todas as tabelas e gerando JSON versionado...');
     try {
-      const { seedCampaignMemories } = await import('../db/seeder');
-      await seedCampaignMemories(campaign.id);
+      const result = await BackupService.exportFullSystemJSON();
+      refreshVersionInfo();
       setProgress(100);
       setOperationResult({
         type: 'success',
-        message: 'Crônica oficial "Coração de Rubi" (20 partes) carregada com sucesso no Grimório!',
+        message: `Backup de dados (v${result.sequence}) exportado com sucesso: ${result.filename}`,
       });
     } catch (err: any) {
-      setOperationResult({ type: 'error', message: err.message || 'Erro ao carregar as memórias da campanha.' });
+      setOperationResult({ type: 'error', message: err.message || 'Erro ao exportar JSON.' });
     } finally {
       setLoading(false);
       setProgress(null);
     }
   };
 
-  // handleExportJSON: hidden from UI intentionally — preserved via BackupService.exportJSONBackup(campaign.id)
-
   const handleExportZIP = async () => {
-    if (!campaign) return;
     setLoading(true);
     setOperationResult(null);
     setProgress(0);
-    setStatusText('Agrupando imagens e estruturando memória...');
+    setStatusText('Varrendo base de dados e empacotando mídias...');
     try {
-      await BackupService.exportFullZipBackup(campaign.id, (p) => {
+      const result = await BackupService.exportFullSystemZipBackup((p) => {
         setProgress(p);
-        if (p === 90) {
-          setStatusText('Gerando arquivo ZIP compactado...');
+        if (p >= 85) {
+          setStatusText('Compactando arquivo ZIP final...');
+        } else {
+          setStatusText(`Agrupando arquivos binários e dados... (${p}%)`);
         }
       });
+      refreshVersionInfo();
       setOperationResult({
         type: 'success',
-        message: 'Memória completa (ZIP) exportada com sucesso.',
+        message: `Manuscrito completo com todas as imagens (v${result.sequence}) exportado: ${result.filename}`,
       });
     } catch (err: any) {
       setOperationResult({ type: 'error', message: err.message || 'Erro ao exportar ZIP.' });
@@ -283,49 +104,97 @@ export const SettingsView: React.FC = () => {
     const isZip = file.name.endsWith('.zip');
 
     if (!isJson && !isZip) {
-      setOperationResult({ type: 'error', message: 'Formato de arquivo inválido. Selecione um .json ou .zip de backup.' });
+      setOperationResult({ type: 'error', message: 'Formato inválido. Selecione um arquivo .json ou .zip de backup.' });
+      return;
+    }
+
+    // Explicit confirmation for full database overwrite
+    const confirmed = await confirm({
+      title: 'Sobrepor Informações do Grimório',
+      message: `ATENÇÃO: A importação irá SOBREPOR COMPLETAMENTE todas as informações cadastradas neste dispositivo.\n\nTodos os heróis, campanhas, memórias e fotos atuais serão substituídos pelo conteúdo do arquivo "${file.name}".\n\nDeseja continuar?`,
+      confirmLabel: 'Sobrepor e Restaurar',
+      cancelLabel: 'Cancelar',
+      isDestructive: true,
+    });
+
+    if (!confirmed) {
+      e.target.value = '';
       return;
     }
 
     setLoading(true);
     setOperationResult(null);
     setProgress(0);
-    setStatusText('Validando arquivo de memórias...');
+    setStatusText('Validando integridade do arquivo...');
 
     try {
-      let importedIds: string[] = [];
+      let result: { campaignIds: string[]; sequence: number };
       if (isJson) {
         const text = await file.text();
         const data = JSON.parse(text);
         setProgress(50);
-        setStatusText('Restaurando tabelas de dados...');
-        importedIds = await BackupService.importJSONData(data, file.name);
+        setStatusText('Limpando base antiga e restaurando tabelas...');
+        result = await BackupService.importJSONData(data, file.name);
         setProgress(100);
-        setOperationResult({
-          type: 'success',
-          message: 'Dados de crônicas restaurados com sucesso.',
-        });
       } else {
-        importedIds = await BackupService.importFullZipData(file, (p) => {
+        result = await BackupService.importFullZipData(file, (p) => {
           setProgress(p);
-          setStatusText(`Extraindo e otimizando miniaturas... (${p}%)`);
-        });
-        setOperationResult({
-          type: 'success',
-          message: 'Memória completa e galeria de imagens restauradas com sucesso.',
+          setStatusText(`Extraindo e restaurando mídias originais... (${p}%)`);
         });
       }
 
-      if (importedIds.length > 0) {
-        setImportedCampaignId(importedIds[0]);
+      refreshVersionInfo();
+
+      setOperationResult({
+        type: 'success',
+        message: `Grimório restaurado com sucesso! Versão importada: v${result.sequence || 1}.`,
+      });
+
+      if (result.campaignIds.length > 0) {
+        setImportedCampaignId(result.campaignIds[0]);
+        await switchCampaign(result.campaignIds[0]);
       }
     } catch (err: any) {
       setOperationResult({ type: 'error', message: err.message || 'Erro ao importar arquivo de backup.' });
     } finally {
       setLoading(false);
       setProgress(null);
-      // Clear input
       e.target.value = '';
+    }
+  };
+
+  const handleSeedCoraçãoRubi = async () => {
+    if (!campaign) {
+      setOperationResult({ type: 'error', message: 'Crie ou selecione uma campanha antes de carregar as crônicas.' });
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: 'Carregar Crônica Oficial',
+      message: 'Isso carregará as 20 memórias e crônicas completas do livro Coração de Rubi no seu grimório atual. Continuar?',
+      confirmLabel: 'Carregar',
+      cancelLabel: 'Cancelar',
+    });
+    if (!confirmed) return;
+
+    setLoading(true);
+    setOperationResult(null);
+    setProgress(50);
+    setStatusText('Consultando o Grimório do Coração de Rubi...');
+
+    try {
+      const { seedCampaignMemories } = await import('../db/seeder');
+      await seedCampaignMemories(campaign.id);
+      setProgress(100);
+      setOperationResult({
+        type: 'success',
+        message: 'Crônica oficial "Coração de Rubi" (20 partes) carregada com sucesso!',
+      });
+    } catch (err: any) {
+      setOperationResult({ type: 'error', message: err.message || 'Erro ao carregar as memórias da campanha.' });
+    } finally {
+      setLoading(false);
+      setProgress(null);
     }
   };
 
@@ -371,11 +240,45 @@ export const SettingsView: React.FC = () => {
       <div className="border-b border-medieval-gold/15 pb-4">
         <h2 className="text-xl font-medieval text-medieval-gold uppercase tracking-wider flex items-center space-x-2">
           <HardDrive className="w-5 h-5 text-medieval-gold" />
-          <span>Configurações e Manutenção</span>
+          <span>Configurações & Manutenção Local</span>
         </h2>
         <p className="text-xs text-medieval-silver mt-1">
-          Gerencie os pergaminhos da campanha, realize backups e configure temas.
+          Estrutura 100% local (IndexedDB). Exporte ou restaure suas crônicas e fichas a qualquer momento.
         </p>
+      </div>
+
+      {/* Backup Versioning Status Banner */}
+      <div className="grimoire-card p-4 space-y-3 bg-gradient-to-r from-medieval-stone/40 via-medieval-stone/20 to-transparent border-medieval-gold/25">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Layers className="w-4 h-4 text-medieval-gold" />
+            <span className="text-xs font-medieval font-bold uppercase tracking-wider text-medieval-brightGold">
+              Controle de Versionamento Local
+            </span>
+          </div>
+          <span className="font-mono text-xs px-2 py-0.5 rounded bg-medieval-gold/20 text-medieval-brightGold border border-medieval-gold/40">
+            v{currentSequence}
+          </span>
+        </div>
+
+        <p className="text-xs text-medieval-silver leading-relaxed">
+          Cada exportação gera um arquivo com número sequencial incremental. Ao compartilhar ou importar entre jogadores, o arquivo com a maior versão contém as informações mais atualizadas.
+        </p>
+
+        {lastImport && (
+          <div className="text-[11px] bg-medieval-charcoal/60 p-2.5 rounded border border-medieval-gold/15 text-medieval-silver space-y-1">
+            <div className="flex justify-between text-medieval-parchment">
+              <span>Última importação realizada:</span>
+              <strong className="text-medieval-brightGold font-mono">v{lastImport.sequence}</strong>
+            </div>
+            <div className="truncate font-mono text-[10px] text-medieval-gold/80" title={lastImport.filename}>
+              Arquivo: {lastImport.filename}
+            </div>
+            <div className="text-[10px] text-medieval-silver/70">
+              Data: {new Date(lastImport.importedAt).toLocaleString('pt-BR')} • {lastImport.campaignsCount} campanhas • {lastImport.charactersCount} heróis • {lastImport.memoriesCount} memórias • {lastImport.mediaCount} mídias
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Gestão de Grimórios */}
@@ -452,156 +355,92 @@ export const SettingsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Cloud Sync Settings */}
+      {/* Exportar & Backup Local */}
       <div className="space-y-4">
         <span className="block text-[10px] text-medieval-gold uppercase font-medieval tracking-widest pl-1">
-          Sincronização na Nuvem
+          Exportar & Backup Local
         </span>
-        <div className="grimoire-card p-4 space-y-4">
-          {!isAuthenticated ? (
-            <div className="space-y-4">
-              <p className="text-xs text-medieval-silver leading-relaxed">
-                Conecte seu grimório à nuvem para sincronizar heróis, crônicas e fichas de combate em tempo real com seu grupo de forma local-first.
-              </p>
-              {cloudError && (
-                <div className="p-2.5 bg-medieval-wine/20 border border-medieval-wine/50 rounded text-red-300 text-xs">
-                  {cloudError}
-                </div>
-              )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="flex flex-col space-y-1">
-                  <label className="text-[10px] font-medieval text-medieval-gold uppercase tracking-wider pl-1">Usuário</label>
-                  <input
-                    type="text"
-                    value={cloudUsername}
-                    onChange={(e) => setCloudUsername(e.target.value)}
-                    placeholder="Assinatura..."
-                    className="medieval-input text-xs"
-                  />
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <label className="text-[10px] font-medieval text-medieval-gold uppercase tracking-wider pl-1">Chave (Senha)</label>
-                  <input
-                    type="password"
-                    value={cloudPassword}
-                    onChange={(e) => setCloudPassword(e.target.value)}
-                    placeholder="Palavra secreta..."
-                    className="medieval-input text-xs"
-                  />
-                </div>
+        <div className="grimoire-card divide-y divide-medieval-gold/10 overflow-hidden">
+
+          {/* Option 1: Export JSON only */}
+          <button
+            onClick={handleExportJSON}
+            className="w-full p-4 flex items-center justify-between hover:bg-medieval-stone/30 transition-all duration-300 text-left group cursor-pointer"
+            disabled={loading}
+          >
+            <div className="flex items-center space-x-4">
+              <div className="p-2 rounded bg-medieval-gold/10 text-medieval-gold flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+                <FileJson className="w-5 h-5" />
               </div>
-              <div className="flex gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={handleCloudLogin}
-                  className="flex-1 btn-gold py-2 text-xs font-medieval uppercase tracking-wider"
-                  disabled={loading}
-                >
-                  Conectar
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCloudRegister}
-                  className="flex-1 btn-stone py-2 text-xs font-medieval uppercase tracking-wider"
-                  disabled={loading}
-                >
-                  Escrever Assinatura
-                </button>
+              <div>
+                <strong className="block text-sm font-medieval text-medieval-brightGold group-hover:text-medieval-gold">
+                  Exportar Estrutura de Dados (Somente JSON)
+                </strong>
+                <span className="text-xs text-medieval-silver">
+                  Varre toda a base: campanhas, heróis, crônicas, comentários, fichas e relações. Leve e rápido para transferência textual.
+                </span>
               </div>
             </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center text-xs">
-                <div>
-                  <span className="text-medieval-silver">Conectado como:</span>{' '}
-                  <strong className="text-medieval-brightGold font-medieval ml-1 text-sm">{username}</strong>
-                </div>
-                <button
-                  onClick={logout}
-                  className="text-red-400 hover:text-red-300 underline font-medieval uppercase tracking-wider text-[10px] cursor-pointer"
-                >
-                  Desconectar
-                </button>
+            <ChevronRight className="w-4 h-4 text-medieval-gold/40 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-300 flex-shrink-0" />
+          </button>
+
+          {/* Option 2: Full ZIP with Images and Files */}
+          <button
+            onClick={handleExportZIP}
+            className="w-full p-4 flex items-center justify-between hover:bg-medieval-stone/30 transition-all duration-300 text-left group cursor-pointer"
+            disabled={loading}
+          >
+            <div className="flex items-center space-x-4">
+              <div className="p-2 rounded bg-medieval-gold/10 text-medieval-gold flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+                <Archive className="w-5 h-5" />
               </div>
-
-              {campaign && (
-                <div className="border-t border-medieval-gold/10 pt-3 space-y-3">
-                  <span className="block text-[10px] text-medieval-gold uppercase font-medieval pl-1">Campanha Ativa</span>
-                  {campaign.version !== undefined && campaign.version > 0 ? (
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center bg-medieval-charcoal/40 p-2.5 rounded border border-medieval-gold/10 text-xs">
-                        <div className="min-w-0 pr-2">
-                          <span className="text-medieval-silver block text-[8px] uppercase tracking-wider">Código de Convite</span>
-                          <code className="text-medieval-brightGold font-mono text-[10px] select-all block truncate">{campaign.id}</code>
-                        </div>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(campaign.id);
-                            setOperationResult({ type: 'success', message: 'Código de convite copiado!' });
-                          }}
-                          className="btn-stone py-1 px-2.5 text-[9px] font-medieval uppercase tracking-wider flex-shrink-0 cursor-pointer"
-                        >
-                          Copiar
-                        </button>
-                      </div>
-                      <p className="text-[10px] text-medieval-silver leading-relaxed pl-1">
-                        Compartilhe este código com seus jogadores para que eles possam participar deste grimório na nuvem.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <p className="text-xs text-medieval-silver pl-1">
-                        Este grimório está apenas em seu dispositivo local. Ative a sincronização para enviá-lo ao servidor e permitir que outros jogadores se juntem.
-                      </p>
-                      <button
-                        onClick={handleSyncCampaign}
-                        className="w-full btn-gold py-2 text-xs font-medieval uppercase tracking-wider cursor-pointer"
-                        disabled={loading}
-                      >
-                        Sincronizar Grimório Ativo
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="border-t border-medieval-gold/10 pt-3 space-y-2">
-                <span className="block text-[10px] text-medieval-gold uppercase font-medieval pl-1">Entrar em Grimório Existente</span>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={inviteCode}
-                    onChange={(e) => setInviteCode(e.target.value)}
-                    placeholder="Cole o código do Grimório aqui..."
-                    className="flex-1 medieval-input text-xs py-1.5"
-                  />
-                  <button
-                    onClick={handleJoinCampaign}
-                    className="btn-gold py-1.5 px-4 text-xs font-medieval uppercase tracking-wider cursor-pointer"
-                    disabled={loading}
-                  >
-                    Entrar
-                  </button>
-                </div>
+              <div>
+                <strong className="block text-sm font-medieval text-medieval-brightGold group-hover:text-medieval-gold flex items-center gap-2">
+                  <span>Exportar Manuscrito Completo (JSON + Imagens + Arquivos ZIP)</span>
+                  <span className="text-[9px] bg-medieval-gold/20 text-medieval-brightGold border border-medieval-gold/30 px-1.5 py-0.2 rounded font-sans uppercase">
+                    Completo
+                  </span>
+                </strong>
+                <span className="text-xs text-medieval-silver">
+                  Varre todo o sistema sem deixar nenhuma informação ou imagem de fora: dados completos + galeria de fotos originais, capas e tokens compactados.
+                </span>
               </div>
-
-              {campaign && (
-                <div className="border-t border-medieval-gold/10 pt-3 space-y-2">
-                  <span className="block text-[10px] text-medieval-gold uppercase font-medieval pl-1">Reconciliar Dados</span>
-                  <p className="text-[10px] text-medieval-silver leading-relaxed pl-1">
-                    Se os dados estiverem divergentes entre dispositivos, apague os dados locais deste dispositivo e baixe a versão mais recente do servidor.
-                  </p>
-                  <button
-                    onClick={handleReconcileFromServer}
-                    className="w-full btn-stone py-2 text-xs font-medieval uppercase tracking-wider cursor-pointer"
-                    disabled={loading}
-                  >
-                    Reconciliar com a Nuvem
-                  </button>
-                </div>
-              )}
             </div>
-          )}
+            <ChevronRight className="w-4 h-4 text-medieval-gold/40 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-300 flex-shrink-0" />
+          </button>
+
+        </div>
+      </div>
+
+      {/* Restauração de Dados */}
+      <div className="space-y-4">
+        <span className="block text-[10px] text-medieval-gold uppercase font-medieval tracking-widest pl-1">
+          Restauração de Dados (Importação Total)
+        </span>
+        <div className="grimoire-card overflow-hidden">
+          <label className="w-full p-4 flex items-center justify-between hover:bg-medieval-stone/30 transition-all duration-300 text-left group cursor-pointer">
+            <div className="flex items-center space-x-4">
+              <div className="p-2 rounded bg-medieval-gold/10 text-medieval-gold flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+                <Upload className="w-5 h-5" />
+              </div>
+              <div>
+                <strong className="block text-sm font-medieval text-medieval-brightGold group-hover:text-medieval-gold">
+                  Carregar e Restaurar Arquivo (.json ou .zip)
+                </strong>
+                <span className="text-xs text-medieval-silver">
+                  Sobrepõe todos os dados locais com as crônicas e fotos do backup selecionado.
+                </span>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-medieval-gold/40 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-300 flex-shrink-0" />
+            <input
+              type="file"
+              accept=".json,.zip"
+              onChange={handleImportFile}
+              className="hidden"
+              disabled={loading}
+            />
+          </label>
         </div>
       </div>
 
@@ -613,7 +452,7 @@ export const SettingsView: React.FC = () => {
         <div className="grimoire-card p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <button
             onClick={() => setTheme('grimoire')}
-            className={`p-3 rounded border transition-all duration-300 flex flex-col items-center space-y-2 ${theme === 'grimoire' || theme === 'dark'
+            className={`p-3 rounded border transition-all duration-300 flex flex-col items-center space-y-2 cursor-pointer ${theme === 'grimoire' || theme === 'dark'
               ? 'bg-medieval-gold/10 border-medieval-gold shadow-gold'
               : 'bg-medieval-charcoal/40 border-medieval-gold/10 hover:border-medieval-gold/30'
               }`}
@@ -626,7 +465,7 @@ export const SettingsView: React.FC = () => {
 
           <button
             onClick={() => setTheme('parchment')}
-            className={`p-3 rounded border transition-all duration-300 flex flex-col items-center space-y-2 ${theme === 'parchment'
+            className={`p-3 rounded border transition-all duration-300 flex flex-col items-center space-y-2 cursor-pointer ${theme === 'parchment'
               ? 'bg-[#8b7355]/10 border-[#8b7355] shadow-gold'
               : 'bg-white/5 border-medieval-gold/10 hover:border-medieval-gold/30'
               }`}
@@ -639,7 +478,7 @@ export const SettingsView: React.FC = () => {
 
           <button
             onClick={() => setTheme('emerald')}
-            className={`p-3 rounded border transition-all duration-300 flex flex-col items-center space-y-2 ${theme === 'emerald'
+            className={`p-3 rounded border transition-all duration-300 flex flex-col items-center space-y-2 cursor-pointer ${theme === 'emerald'
               ? 'bg-[#10b981]/10 border-[#10b981] shadow-gold'
               : 'bg-emerald-950/20 border-medieval-gold/10 hover:border-medieval-gold/30'
               }`}
@@ -652,7 +491,7 @@ export const SettingsView: React.FC = () => {
 
           <button
             onClick={() => setTheme('crimson')}
-            className={`p-3 rounded border transition-all duration-300 flex flex-col items-center space-y-2 ${theme === 'crimson'
+            className={`p-3 rounded border transition-all duration-300 flex flex-col items-center space-y-2 cursor-pointer ${theme === 'crimson'
               ? 'bg-[#C0392B]/10 border-[#C0392B] shadow-gold'
               : 'bg-red-950/20 border-medieval-gold/10 hover:border-medieval-gold/30'
               }`}
@@ -665,7 +504,7 @@ export const SettingsView: React.FC = () => {
 
           <button
             onClick={() => setTheme('frost')}
-            className={`p-3 rounded border transition-all duration-300 flex flex-col items-center space-y-2 ${theme === 'frost'
+            className={`p-3 rounded border transition-all duration-300 flex flex-col items-center space-y-2 cursor-pointer ${theme === 'frost'
               ? 'bg-[#7EB8E8]/10 border-[#7EB8E8] shadow-gold'
               : 'bg-blue-950/20 border-medieval-gold/10 hover:border-medieval-gold/30'
               }`}
@@ -678,20 +517,6 @@ export const SettingsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Operation progress/result overlay */}
-      <OperationOverlay
-        isActive={loading}
-        progress={progress}
-        statusText={statusText}
-        result={operationResult}
-        onDismiss={() => {
-          setOperationResult(null);
-          setImportedCampaignId(null);
-        }}
-        secondaryActionLabel={importedCampaignId ? "Alternar para Grimório" : undefined}
-        onSecondaryAction={importedCampaignId ? () => switchCampaign(importedCampaignId) : undefined}
-      />
-
       {/* Storage Estimate Panel */}
       {storageUsage && (
         <div className="grimoire-card p-4 space-y-3">
@@ -700,25 +525,11 @@ export const SettingsView: React.FC = () => {
             <span>Capacidade de Armazenamento Local (IndexedDB)</span>
           </div>
           <div className="flex justify-between items-end text-xs text-medieval-silver">
-            <span>Uso da Galeria: <strong className="text-medieval-parchment">{storageUsage.used}</strong></span>
-            <span>Espaço Reservado: {storageUsage.total}</span>
+            <span>Uso Atual: <strong className="text-medieval-parchment">{storageUsage.used}</strong></span>
+            <span>Espaço Estimado Disponível: {storageUsage.total}</span>
           </div>
           <div className="w-full bg-medieval-charcoal/90 h-1.5 rounded overflow-hidden border border-medieval-gold/10">
-            <div className="bg-medieval-gold h-full rounded" style={{ width: `${storageUsage.percent}%` }} />
-          </div>
-        </div>
-      )}
-
-      {/* Active Campaign Info Header */}
-      {campaign && (
-        <div className="grimoire-card p-4 flex items-center justify-between text-xs">
-          <div>
-            <span className="block text-[10px] text-medieval-gold uppercase font-medieval">Grimório Ativo</span>
-            <strong className="text-sm font-medieval text-medieval-brightGold">{campaign.name}</strong>
-          </div>
-          <div className="text-right text-medieval-silver">
-            <div>Sistema: {campaign.system}</div>
-            <div>Iniciada: {new Date(campaign.startDate).toLocaleDateString('pt-BR')}</div>
+            <div className="bg-medieval-gold h-full rounded transition-all duration-500" style={{ width: `${storageUsage.percent}%` }} />
           </div>
         </div>
       )}
@@ -740,8 +551,12 @@ export const SettingsView: React.FC = () => {
                   <BookOpen className="w-5 h-5" />
                 </div>
                 <div>
-                  <strong className="block text-sm font-medieval text-medieval-brightGold group-hover:text-medieval-gold">Importar Crônica Coração de Rubi</strong>
-                  <span className="text-xs text-medieval-silver font-serif">Preenche suas memórias com a história oficial completa (20 partes extraídas de T20-Coração Rubi.pdf).</span>
+                  <strong className="block text-sm font-medieval text-medieval-brightGold group-hover:text-medieval-gold">
+                    Importar Crônica Coração de Rubi
+                  </strong>
+                  <span className="text-xs text-medieval-silver font-serif">
+                    Preenche suas memórias com a história oficial completa (20 partes de T20-Coração Rubi).
+                  </span>
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 text-medieval-gold/40 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-300" />
@@ -749,82 +564,6 @@ export const SettingsView: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* Backup Menu Options (reference settings layout list) */}
-      <div className="space-y-4">
-        <span className="block text-[10px] text-medieval-gold uppercase font-medieval tracking-widest pl-1">
-          Exportar & Backup
-        </span>
-        <div className="grimoire-card divide-y divide-medieval-gold/10 overflow-hidden">
-
-          {/* 
-          <button
-            onClick={handleExportJSON}
-            className="w-full p-4 flex items-center justify-between hover:bg-medieval-stone/30 transition-all duration-300 text-left group"
-            disabled={loading}
-          >
-            <div className="flex items-center space-x-4">
-              <div className="p-2 rounded bg-medieval-gold/10 text-medieval-gold flex-shrink-0">
-                <FileJson className="w-5 h-5" />
-              </div>
-              <div>
-                <strong className="block text-sm font-medieval text-medieval-brightGold group-hover:text-medieval-gold">Exportar Apenas Dados (JSON)</strong>
-                <span className="text-xs text-medieval-silver">Backup de fichas de heróis, diários e relações sem mídias.</span>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-medieval-gold/40 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-300" />
-          </button>
-          */}
-
-          <button
-            onClick={handleExportZIP}
-            className="w-full p-4 flex items-center justify-between hover:bg-medieval-stone/30 transition-all duration-300 text-left group"
-            disabled={loading}
-          >
-            <div className="flex items-center space-x-4">
-              <div className="p-2 rounded bg-medieval-gold/10 text-medieval-gold flex-shrink-0">
-                <Archive className="w-5 h-5" />
-              </div>
-              <div>
-                <strong className="block text-sm font-medieval text-medieval-brightGold group-hover:text-medieval-gold">Exportar Memória Completa (ZIP)</strong>
-                <span className="text-xs text-medieval-silver">Backup unificado contendo todas as imagens originais, tokens e base de dados.</span>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-medieval-gold/40 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-300" />
-          </button>
-
-        </div>
-      </div>
-
-      {/* Restore Menu Options */}
-      <div className="space-y-4">
-        <span className="block text-[10px] text-medieval-gold uppercase font-medieval tracking-widest pl-1">
-          Restauração de Dados
-        </span>
-        <div className="grimoire-card overflow-hidden">
-
-          <label className="w-full p-4 flex items-center justify-between hover:bg-medieval-stone/30 transition-all duration-300 text-left group cursor-pointer">
-            <div className="flex items-center space-x-4">
-              <div className="p-2 rounded bg-medieval-gold/10 text-medieval-gold flex-shrink-0">
-                <Upload className="w-5 h-5" />
-              </div>
-              <div>
-                <strong className="block text-sm font-medieval text-medieval-brightGold group-hover:text-medieval-gold">Carregar Arquivo de Backup</strong>
-                <span className="text-xs text-medieval-silver">Restaure sua mesa a partir de arquivos compactados (.zip) ou planilhas de dados (.json).</span>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-medieval-gold/40 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-300" />
-            <input
-              type="file"
-              accept=".json,.zip"
-              onChange={handleImportFile}
-              className="hidden"
-              disabled={loading}
-            />
-          </label>
-
-        </div>
-      </div>
 
       {/* Danger Operations Section */}
       <div className="space-y-4">
@@ -861,6 +600,20 @@ export const SettingsView: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Operation progress/result overlay */}
+      <OperationOverlay
+        isActive={loading}
+        progress={progress}
+        statusText={statusText}
+        result={operationResult}
+        onDismiss={() => {
+          setOperationResult(null);
+          setImportedCampaignId(null);
+        }}
+        secondaryActionLabel={importedCampaignId ? "Alternar para Grimório" : undefined}
+        onSecondaryAction={importedCampaignId ? () => switchCampaign(importedCampaignId) : undefined}
+      />
 
     </div>
   );

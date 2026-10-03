@@ -1,11 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter, type ViewState } from '../../contexts/RouterContext';
 import { useSearch } from '../../contexts/SearchContext';
 import { useCampaign } from '../../contexts/CampaignContext';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db';
-import { SyncStatus } from '../ui/SyncStatus';
-import { useSync } from '../../contexts/SyncContext';
 import {
   Book,
   Compass,
@@ -28,22 +26,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showSearch = tru
   const { view, navigate, goBack } = useRouter();
   const { searchQuery, setSearchQuery } = useSearch();
   const { campaign } = useCampaign();
-  const { isAuthenticated } = useSync();
   const [isSearching, setIsSearching] = useState(false);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
 
   // Spotlight search query
   const searchResults = useLiveQuery(async () => {
@@ -119,23 +102,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showSearch = tru
       {/* Full-width Container (fills dynamic viewport height, handles mobile browser bars) */}
       <div className="w-full min-h-[100dvh] bg-medieval-charcoal flex flex-col relative">
 
-        {isAuthenticated && !isOnline && (
-          <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center p-6 text-center animate-fade-in"
-               style={{
-                 backdropFilter: 'blur(12px)',
-                 WebkitBackdropFilter: 'blur(12px)',
-                 backgroundColor: 'rgba(15, 15, 18, 0.95)',
-               }}>
-            <Shield className="w-16 h-16 text-medieval-gold animate-pulse mb-4" />
-            <h2 className="font-medieval text-xl text-medieval-gold uppercase tracking-wider mb-2">
-              Sem Conexão com a Internet
-            </h2>
-            <p className="text-medieval-parchment text-xs font-serif max-w-sm leading-relaxed mb-6">
-              Este Grimório na Nuvem requer uma conexão ativa com a internet para carregar ou salvar dados.
-            </p>
-            <div className="w-12 h-1 bg-medieval-gold rounded-full animate-pulse" />
-          </div>
-        )}
 
         {/* Sticky Header - Top Bar */}
         {isSearching ? (
@@ -193,7 +159,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, showSearch = tru
 
             {/* Right Search toggle trigger icon */}
             <div className="flex items-center justify-end min-w-[50px] space-x-2">
-              <SyncStatus />
               {showSearch && (
                 <button
                   onClick={() => setIsSearching(true)}

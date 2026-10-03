@@ -10,9 +10,8 @@ export const MemoryCharacterRepository = {
     return await db.memoryCharacters.where('memoryId').equals(memoryId).toArray();
   },
 
-  async save(memoryCharacter: MemoryCharacter, isSyncTrigger: boolean = true): Promise<void> {
+  async save(memoryCharacter: MemoryCharacter, _isSyncTrigger: boolean = true): Promise<void> {
     const existing = await db.memoryCharacters.get(memoryCharacter.id);
-    const isNew = !existing;
     const baseVersion = existing?.version || 0;
 
     const record: MemoryCharacter = {
@@ -20,51 +19,11 @@ export const MemoryCharacterRepository = {
       version: baseVersion
     };
 
-    if (isSyncTrigger && localStorage.getItem('cloud_token')) {
-      const { SyncEngine } = await import('../services/sync');
-      await SyncEngine.performOnlineWrite(
-        'memoryCharacter',
-        memoryCharacter.id,
-        isNew ? 'CREATE' : 'UPDATE',
-        baseVersion,
-        record,
-        async () => {
-          await db.memoryCharacters.put(record);
-        },
-        async () => {
-          if (existing) {
-            await db.memoryCharacters.put(existing);
-          } else {
-            await db.memoryCharacters.delete(memoryCharacter.id);
-          }
-        }
-      );
-    } else {
-      await db.memoryCharacters.put(record);
-    }
+    await db.memoryCharacters.put(record);
   },
 
-  async delete(id: string, isSyncTrigger: boolean = true): Promise<void> {
-    const existing = await db.memoryCharacters.get(id);
-    if (!existing) return;
-
-    if (isSyncTrigger && localStorage.getItem('cloud_token')) {
-      const { SyncEngine } = await import('../services/sync');
-      await SyncEngine.performOnlineWrite(
-        'memoryCharacter',
-        id,
-        'DELETE',
-        existing.version || 0,
-        null,
-        async () => {
-          await db.memoryCharacters.delete(id);
-        },
-        async () => {
-          await db.memoryCharacters.put(existing);
-        }
-      );
-    } else {
-      await db.memoryCharacters.delete(id);
-    }
+  async delete(id: string, _isSyncTrigger: boolean = true): Promise<void> {
+    await db.memoryCharacters.delete(id);
   }
 };
+

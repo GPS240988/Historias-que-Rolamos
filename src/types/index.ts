@@ -122,9 +122,23 @@ export interface Token {
   version?: number;
 }
 
-// Full Campaign Backup structure (JSON part)
-export interface CampaignBackup {
-  version: string;
+// Full System / Campaign Backup structure (JSON part)
+export interface SystemBackupSummary {
+  campaignsCount: number;
+  charactersCount: number;
+  memoriesCount: number;
+  tokensCount: number;
+  memoryCharactersCount: number;
+  mediaCount: number;
+}
+
+export interface SystemBackup {
+  format: 'historias-que-rolamos-backup';
+  version: string; // Schema semantic version, e.g. "2.0.0"
+  exportSequence: number; // Incremental version number, e.g. 1, 2, 3...
+  exportedAt: string; // ISO 8601 timestamp
+  appName: string;
+  summary: SystemBackupSummary;
   campaigns: Campaign[];
   characters: Character[];
   memories: Memory[];
@@ -133,24 +147,17 @@ export interface CampaignBackup {
   mediaMetadata: Omit<Media, 'blob' | 'thumbnail'>[];
 }
 
-export interface SyncOutbox {
-  id?: number;
-  entityType: 'campaign' | 'character' | 'memory' | 'memoryCharacter' | 'token' | 'media';
-  entityId: string;
-  operation: 'CREATE' | 'UPDATE' | 'DELETE';
-  baseVersion: number;
-  payload: any;
-  createdAt: string;
-  status: 'pending' | 'syncing' | 'failed' | 'conflict';
-  errorMessage?: string;
-  serverVersion?: number;
-  serverPayload?: any;
-}
-
-export interface UserSession {
-  token: string;
-  user: {
-    id: string;
-    username: string;
-  };
-}
+// Backwards-compatible alias for existing imports
+export type CampaignBackup = SystemBackup | {
+  version: string;
+  exportSequence?: number;
+  exportedAt?: string;
+  appName?: string;
+  summary?: Partial<SystemBackupSummary>;
+  campaigns: Campaign[];
+  characters: Character[];
+  memories: Memory[];
+  memoryCharacters: MemoryCharacter[];
+  tokens: Token[];
+  mediaMetadata: Omit<Media, 'blob' | 'thumbnail'>[];
+};
