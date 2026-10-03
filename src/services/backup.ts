@@ -1,9 +1,9 @@
 import { db } from '../db';
 import { generateThumbnail } from './media';
+import { VersionControlService } from './versionControl';
 import type { SystemBackup, Media, Campaign } from '../types';
 import JSZip from 'jszip';
 
-const STORAGE_KEY_SEQUENCE = 'export_sequence_version';
 const STORAGE_KEY_LAST_IMPORT = 'last_import_info';
 
 export interface LastImportInfo {
@@ -17,54 +17,29 @@ export interface LastImportInfo {
   mediaCount: number;
 }
 
+export interface ExportResult {
+  filename: string;
+  sequence: number;
+  isNewVersion: boolean;
+}
+
 /**
  * Service to handle local JSON data backups and Full binary ZIP memory archives
  * 100% offline-first, with zero cloud dependency.
  */
 export const BackupService = {
   /**
-   * Retrieves the current export sequence counter from storage (or defaults to 0).
+   * Retrieves the current export sequence / version number.
    */
   getCurrentExportSequence(): number {
-    const raw = localStorage.getItem(STORAGE_KEY_SEQUENCE);
-    const parsed = raw ? parseInt(raw, 10) : 0;
-    return isNaN(parsed) || parsed < 0 ? 0 : parsed;
+    return VersionControlService.getCurrentVersion();
   },
 
   /**
-   * Increments and returns the next export sequence version number.
-   * e.g. 1, 2, 3...
+   * Previews the next export sequence / version number and whether it will create a new version.
    */
-  getNextExportSequence(): number {
-    const current = this.getCurrentExportSequence();
-    const next = current + 1;
-    localStorage.setItem(STORAGE_KEY_SEQUENCE, next.toString());
-    return next;
-  },
-
-  /**
-   * Updates the sequence counter when a backup is imported,
-   * ensuring future exports will always have a higher version number.
-   */
-  syncExportSequence(importedSequence: number, filename?: string, details?: Partial<LastImportInfo>): void {
-    const current = this.getCurrentExportSequence();
-    if (importedSequence > current) {
-      localStorage.setItem(STORAGE_KEY_SEQUENCE, importedSequence.toString());
-    }
-
-    if (filename) {
-      const info: LastImportInfo = {
-        sequence: importedSequence,
-        filename,
-        importedAt: new Date().toISOString(),
-        campaignsCount: details?.campaignsCount ?? 0,
-        charactersCount: details?.charactersCount ?? 0,
-        memoriesCount: details?.memoriesCount ?? 0,
-        tokensCount: details?.tokensCount ?? 0,
-        mediaCount: details?.mediaCount ?? 0,
-      };
-      localStorage.setItem(STORAGE_KEY_LAST_IMPORT, JSON.stringify(info));
-    }
+  peekNextExportSequence(): { version: number; isNewVersion: boolean } {
+    return VersionControlService.peekNextExportVersion();
   },
 
   /**
@@ -137,7 +112,8 @@ export const BackupService = {
       version: m.version
     }));
 
-    const exportSequence = options?.exportSequence ?? this.getNextExportSequence();
+    const exportSequence = options?.exportSequence ?? VersionControlService.peekNextExportVersion().version;
+    const versionHistory = VersionControlService.getVersionHistory();
 
     return {
       format: 'historias-que-rolamos-backup',
@@ -153,6 +129,7 @@ export const BackupService = {
         memoryCharactersCount: memoryCharacters.length,
         mediaCount: mediaMetadata.length
       },
+      versionHistory,
       campaigns,
       characters,
       memories,
@@ -196,7 +173,8 @@ export const BackupService = {
       version: m.version
     }));
 
-    const exportSequence = this.getNextExportSequence();
+    const exportSequence = VersionControlService.peekNextExportVersion().version;
+    const versionHistory = VersionControlService.getVersionHistory();
 
     return {
       format: 'historias-que-rolamos-backup',
@@ -212,6 +190,7 @@ export const BackupService = {
         memoryCharactersCount: memoryCharacters.length,
         mediaCount: mediaMetadata.length
       },
+      versionHistory,
       campaigns,
       characters,
       memories,
@@ -222,52 +201,66 @@ export const BackupService = {
   },
 
   /**
-   * Exports the entire database as a structured JSON file with explicit versioning in the filename.
-   * Format: `historias_que_rolamos_v{seq}_{YYYY-MM-DD}_{HHMMSS}.json`
+   * Exports the entire database as a structured JSON file.
+   * If there are pending changes: increments version and logs history.
+   * If there are NO pending changes: exports at current version without incrementing.
+   * Filename: `historias_que_rolamos_v{seq}_{YYYY-MM-DD}_{HHMMSS}.json`
    */
-  async exportFullSystemJSON(): Promise<{ filename: string; sequence: number }> {
-    const data = await this.compileFullSystemJSON();
+  async exportFullSystemJSON(): Promise<ExportResult> {
+    const { version, isNewVersion } = VersionControlService.peekNextExportVersion();
+    const data = await this.compileFullSystemJSON({ exportSequence: version });
+
     const jsonString = JSON.stringify(data, null, 2);
     const blob = new Blob([jsonString], { type: 'application/json' });
 
     const { dateStr, timeStr } = this.getFormattedTimestamp();
-    const filename = `historias_que_rolamos_v${data.exportSequence}_${dateStr}_${timeStr}.json`;
+    const filename = `historias_que_rolamos_v${version}_${dateStr}_${timeStr}.json`;
+
+    // Commit change log / version state
+    VersionControlService.commitExport(data.summary);
 
     this.triggerDownload(blob, filename);
-    return { filename, sequence: data.exportSequence };
+    return { filename, sequence: version, isNewVersion };
   },
 
   /**
    * Triggers a browser download of a JSON backup file for a specific campaign or full system.
    */
-  async exportJSONBackup(campaignId?: string): Promise<{ filename: string; sequence: number }> {
+  async exportJSONBackup(campaignId?: string): Promise<ExportResult> {
     if (!campaignId) {
       return await this.exportFullSystemJSON();
     }
 
+    const { version, isNewVersion } = VersionControlService.peekNextExportVersion();
     const data = await this.compileJSONData(campaignId);
+    data.exportSequence = version;
+
     const jsonString = JSON.stringify(data, null, 2);
     const blob = new Blob([jsonString], { type: 'application/json' });
 
     const campaignName = data.campaigns[0]?.name.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'campanha';
     const { dateStr, timeStr } = this.getFormattedTimestamp();
-    const filename = `memoria_${campaignName}_v${data.exportSequence}_${dateStr}_${timeStr}.json`;
+    const filename = `memoria_${campaignName}_v${version}_${dateStr}_${timeStr}.json`;
+
+    VersionControlService.commitExport(data.summary);
 
     this.triggerDownload(blob, filename);
-    return { filename, sequence: data.exportSequence };
+    return { filename, sequence: version, isNewVersion };
   },
 
   /**
    * Exports the complete system: structured JSON + ALL binary media files (images, PDFs, attachments, tokens).
    * Leaves NOTHING out. Places each file in `media/` directory inside the archive.
+   * If there are pending changes: increments version and commits history.
+   * If there are NO pending changes: exports at current version without incrementing.
    * Filename: `historias_que_rolamos_completo_v{seq}_{YYYY-MM-DD}_{HHMMSS}.zip`
    */
-  async exportFullSystemZipBackup(onProgress?: (progress: number) => void): Promise<{ filename: string; sequence: number }> {
+  async exportFullSystemZipBackup(onProgress?: (progress: number) => void): Promise<ExportResult> {
     const zip = new JSZip();
 
-    // 1. Compile full system JSON (with new sequence number)
-    const exportSequence = this.getNextExportSequence();
-    const data = await this.compileFullSystemJSON({ exportSequence });
+    // 1. Determine version according to pending changes
+    const { version, isNewVersion } = VersionControlService.peekNextExportVersion();
+    const data = await this.compileFullSystemJSON({ exportSequence: version });
 
     // Store db.json inside root of ZIP
     zip.file('db.json', JSON.stringify(data, null, 2));
@@ -288,7 +281,7 @@ export const BackupService = {
         }
 
         if (onProgress) {
-          onProgress(Math.round(((i + 1) / totalMedia) * 85)); // 0-85% for media bundling
+          onProgress(Math.round(((i + 1) / totalMedia) * 85));
         }
       }
     } else if (onProgress) {
@@ -300,10 +293,12 @@ export const BackupService = {
       appName: 'Histórias que Rolamos',
       backupFormat: 'full-system-archive',
       version: '2.0.0',
-      exportSequence,
+      exportSequence: version,
+      isNewVersion,
       exportedAt: data.exportedAt,
       summary: data.summary,
-      filesArchived: totalMedia
+      filesArchived: totalMedia,
+      versionHistory: data.versionHistory
     };
     zip.file('manifest.json', JSON.stringify(manifest, null, 2));
 
@@ -311,7 +306,8 @@ export const BackupService = {
     const readme = `=====================================================
 HISTÓRIAS QUE ROLAMOS - BACKUP COMPLETO DO SISTEMA
 =====================================================
-Versão da Exportação : v${exportSequence}
+Versão da Exportação : v${version}
+Status da Versão     : ${isNewVersion ? 'Nova versão gerada' : 'Versão mantida (sem novas alterações)'}
 Data de Geração      : ${new Date(data.exportedAt).toLocaleString('pt-BR')}
 Formato do Arquivo   : ZIP (db.json + /media)
 
@@ -337,35 +333,153 @@ e selecione este arquivo .zip. Toda a sua história e imagens serão recuperadas
       }
     });
 
-    // 6. Download ZIP
+    // 6. Commit version control state
+    VersionControlService.commitExport(data.summary);
+
+    // 7. Download ZIP
     const { dateStr, timeStr } = this.getFormattedTimestamp();
-    const filename = `historias_que_rolamos_completo_v${exportSequence}_${dateStr}_${timeStr}.zip`;
+    const filename = `historias_que_rolamos_completo_v${version}_${dateStr}_${timeStr}.zip`;
+    this.triggerDownload(zipBlob, filename);
+    return { filename, sequence: version, isNewVersion };
+  },
+
+  /**
+   * Exports an Incremental Delta ZIP package containing:
+   * 1. db.json with complete updated system state.
+   * 2. /media folder containing ONLY media created or updated in pending changes!
+   * This prevents generating massive ZIP archives when only 1 or 2 images were added.
+   */
+  async exportDeltaZipBackup(onProgress?: (progress: number) => void): Promise<ExportResult> {
+    const zip = new JSZip();
+
+    const { version, isNewVersion } = VersionControlService.peekNextExportVersion();
+    const data = await this.compileFullSystemJSON({ exportSequence: version });
+
+    zip.file('db.json', JSON.stringify(data, null, 2));
+
+    // Identificação profunda e abrangente de mídias novas ou alteradas nesta versão:
+    // 1. Mídias registradas diretamente no log de pendências
+    // 2. Tokens inseridos/alterados (captura token.mediaId)
+    // 3. Personagens com novo avatar (imageId), ficha (sheetMediaId) ou galeria (relatedCharacterId)
+    // 4. Memórias com nova capa (imageId) ou fotos anexadas (relatedMemoryId)
+    // 5. Capa de campanha (coverImageId)
+    // 6. Segurança temporal: mídias criadas após a data do último backup exportado
+    const pendingChanges = VersionControlService.getPendingChanges();
+    const modifiedMediaIds = new Set<string>();
+
+    for (const change of pendingChanges) {
+      if (change.action === 'delete') continue;
+
+      if (change.entityType === 'media') {
+        modifiedMediaIds.add(change.entityId);
+      } else if (change.entityType === 'token') {
+        const token = await db.tokens.get(change.entityId);
+        if (token?.mediaId) modifiedMediaIds.add(token.mediaId);
+      } else if (change.entityType === 'character') {
+        const char = await db.characters.get(change.entityId);
+        if (char?.imageId) modifiedMediaIds.add(char.imageId);
+        if (char?.sheetMediaId) modifiedMediaIds.add(char.sheetMediaId);
+        const related = await db.media.filter(m => m.relatedCharacterId === change.entityId).toArray();
+        for (const r of related) modifiedMediaIds.add(r.id);
+      } else if (change.entityType === 'memory') {
+        const mem = await db.memories.get(change.entityId);
+        if (mem?.imageId) modifiedMediaIds.add(mem.imageId);
+        const related = await db.media.filter(m => m.relatedMemoryId === change.entityId).toArray();
+        for (const r of related) modifiedMediaIds.add(r.id);
+      } else if (change.entityType === 'campaign') {
+        const camp = await db.campaigns.get(change.entityId);
+        if (camp?.coverImageId) modifiedMediaIds.add(camp.coverImageId);
+      }
+    }
+
+    // Camada de segurança temporal
+    const versionHistory = VersionControlService.getVersionHistory();
+    const lastExportDate = versionHistory[0]?.exportedAt;
+    if (lastExportDate) {
+      const recentMedia = await db.media
+        .filter(m => !!m.createdAt && m.createdAt >= lastExportDate)
+        .toArray();
+      for (const rm of recentMedia) {
+        modifiedMediaIds.add(rm.id);
+      }
+    } else if (pendingChanges.length > 0 && modifiedMediaIds.size === 0) {
+      const allMedia = await db.media.toArray();
+      for (const m of allMedia) {
+        modifiedMediaIds.add(m.id);
+      }
+    }
+
+    const mediaToPack = modifiedMediaIds.size > 0
+      ? await db.media.where('id').anyOf(Array.from(modifiedMediaIds)).toArray()
+      : [];
+
+    const totalMedia = mediaToPack.length;
+    const mediaFolder = zip.folder('media');
+
+    if (mediaFolder && totalMedia > 0) {
+      for (let i = 0; i < totalMedia; i++) {
+        const item = mediaToPack[i];
+        const fileExt = item.filename.split('.').pop() || 'bin';
+        const zipPath = `${item.id}.${fileExt}`;
+        
+        if (item.blob) {
+          mediaFolder.file(zipPath, item.blob);
+        }
+
+        if (onProgress) {
+          onProgress(Math.round(((i + 1) / totalMedia) * 85));
+        }
+      }
+    } else if (onProgress) {
+      onProgress(85);
+    }
+
+    const manifest = {
+      appName: 'Histórias que Rolamos',
+      backupFormat: 'incremental-delta-archive',
+      version: '2.0.0',
+      exportSequence: version,
+      isNewVersion,
+      exportedAt: data.exportedAt,
+      summary: data.summary,
+      filesArchived: totalMedia,
+      versionHistory: data.versionHistory
+    };
+    zip.file('manifest.json', JSON.stringify(manifest, null, 2));
+
+    if (onProgress) onProgress(88);
+    const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } }, (metadata) => {
+      if (onProgress) {
+        onProgress(88 + Math.round(metadata.percent * 0.12));
+      }
+    });
+
+    VersionControlService.commitExport(data.summary);
+
+    const { dateStr, timeStr } = this.getFormattedTimestamp();
+    const filename = `historias_que_rolamos_delta_v${version}_${dateStr}_${timeStr}.zip`;
 
     this.triggerDownload(zipBlob, filename);
-    return { filename, sequence: exportSequence };
+    return { filename, sequence: version, isNewVersion };
   },
 
   /**
    * Backwards-compatible wrapper for single campaign ZIP export or full system ZIP.
    */
-  async exportFullZipBackup(campaignId?: string, onProgress?: (progress: number) => void): Promise<void> {
+  async exportFullZipBackup(campaignId?: string, onProgress?: (progress: number) => void): Promise<ExportResult> {
     if (!campaignId) {
-      await this.exportFullSystemZipBackup(onProgress);
-      return;
+      return await this.exportFullSystemZipBackup(onProgress);
     }
 
-    // If campaignId is specified, check if user has only 1 campaign anyway
     const allCampaigns = await db.campaigns.toArray();
     if (allCampaigns.length <= 1) {
-      await this.exportFullSystemZipBackup(onProgress);
-      return;
+      return await this.exportFullSystemZipBackup(onProgress);
     }
 
-    // Export specific campaign with all its media
     const zip = new JSZip();
-    const exportSequence = this.getNextExportSequence();
+    const { version, isNewVersion } = VersionControlService.peekNextExportVersion();
     const data = await this.compileJSONData(campaignId);
-    data.exportSequence = exportSequence;
+    data.exportSequence = version;
 
     zip.file('db.json', JSON.stringify(data, null, 2));
 
@@ -396,11 +510,14 @@ e selecione este arquivo .zip. Toda a sua história e imagens serão recuperadas
       }
     });
 
+    VersionControlService.commitExport(data.summary);
+
     const campaignName = data.campaigns[0]?.name.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'campanha';
     const { dateStr, timeStr } = this.getFormattedTimestamp();
-    const filename = `memoria_completa_${campaignName}_v${exportSequence}_${dateStr}_${timeStr}.zip`;
+    const filename = `memoria_completa_${campaignName}_v${version}_${dateStr}_${timeStr}.zip`;
 
     this.triggerDownload(zipBlob, filename);
+    return { filename, sequence: version, isNewVersion };
   },
 
   /**
@@ -421,7 +538,8 @@ e selecione este arquivo .zip. Toda a sua história e imagens serão recuperadas
 
   /**
    * Imports structured JSON backup.
-   * IMPORTANT REQUIREMENT: Overwrites ALL previously registered data in IndexedDB completely.
+   * Overwrites ALL previously registered data in IndexedDB completely.
+   * Resets pending changes to 0 and adopts imported version.
    */
   async importJSONData(backup: any, filename?: string): Promise<{ campaignIds: string[]; sequence: number }> {
     if (!backup || typeof backup !== 'object') {
@@ -445,24 +563,51 @@ e selecione este arquivo .zip. Toda a sua história e imagens serão recuperadas
       const parsed = this.parseSequenceFromFilename(filename);
       if (parsed) sequence = parsed;
     }
+    if (sequence === 0) sequence = 1;
 
     // Set backup version source on campaigns for traceability
     for (const camp of campaigns) {
       if (filename) {
         camp.lastImportedFrom = filename;
       }
-      if (sequence > 0) {
-        camp.version = sequence;
-      }
+      camp.version = sequence;
     }
 
     const campaignIds = campaigns.map(c => c.id);
 
-    // OVERWRITE ALL: Wipe existing IndexedDB state completely before restoring!
-    await db.clearAll();
+    const validCharIds = new Set(characters.map((c: any) => c.id));
+    const validMemIds = new Set(memories.map((m: any) => m.id));
+    const validTokenIds = new Set(tokens.map((t: any) => t.id));
+    const validMediaIds = new Set(mediaMetadata.map((m: any) => m.id));
 
-    // Insert all collections cleanly into Dexie
+    // Smart Upsert & Declarative Reconciliation:
+    // 1. Preserva imagens e binários existentes no IndexedDB.
+    // 2. Remove de forma cirúrgica apenas as entidades que foram excluídas na nova versão.
+    // 3. Atualiza campanhas, fichas, memórias e tokens sem perder arquivos locais.
     await db.transaction('rw', [db.campaigns, db.characters, db.memories, db.tokens, db.memoryCharacters, db.media], async () => {
+      // Reconciliação de exclusões para as campanhas importadas
+      for (const camp of campaigns) {
+        const localChars = await db.characters.where('campaignId').equals(camp.id).toArray();
+        for (const lc of localChars) {
+          if (!validCharIds.has(lc.id)) await db.characters.delete(lc.id);
+        }
+
+        const localMems = await db.memories.where('campaignId').equals(camp.id).toArray();
+        for (const lm of localMems) {
+          if (!validMemIds.has(lm.id)) await db.memories.delete(lm.id);
+        }
+
+        const localTokens = await db.tokens.where('campaignId').equals(camp.id).toArray();
+        for (const lt of localTokens) {
+          if (!validTokenIds.has(lt.id)) await db.tokens.delete(lt.id);
+        }
+
+        const localMedia = await db.media.where('campaignId').equals(camp.id).toArray();
+        for (const lmed of localMedia) {
+          if (!validMediaIds.has(lmed.id)) await db.media.delete(lmed.id);
+        }
+      }
+
       if (campaigns.length > 0) await db.campaigns.bulkPut(campaigns);
       if (characters.length > 0) await db.characters.bulkPut(characters);
       if (memories.length > 0) await db.memories.bulkPut(memories);
@@ -471,24 +616,49 @@ e selecione este arquivo .zip. Toda a sua história e imagens serão recuperadas
 
       if (mediaMetadata.length > 0) {
         for (const meta of mediaMetadata) {
-          const fallbackMedia: Media = {
-            ...meta,
-            blob: new Blob([], { type: meta.mimeType || 'application/octet-stream' }),
-            thumbnail: new Blob([], { type: meta.mimeType || 'application/octet-stream' })
-          };
-          await db.media.put(fallbackMedia);
+          const existing = await db.media.get(meta.id);
+          if (existing && existing.blob && existing.blob.size > 0) {
+            // Preserva o binário já existente intacto no banco local!
+            await db.media.put({
+              ...meta,
+              blob: existing.blob,
+              thumbnail: existing.thumbnail || existing.blob
+            });
+          } else if (existing) {
+            await db.media.put({
+              ...existing,
+              ...meta
+            });
+          } else {
+            // Nova referência de mídia sem arquivo físico prévio neste dispositivo
+            const fallbackMedia: Media = {
+              ...meta,
+              blob: new Blob([], { type: meta.mimeType || 'application/octet-stream' }),
+              thumbnail: new Blob([], { type: meta.mimeType || 'application/octet-stream' })
+            };
+            await db.media.put(fallbackMedia);
+          }
         }
       }
     });
 
-    // Update the system export sequence counter so subsequent exports are strictly higher
-    this.syncExportSequence(sequence, filename, {
-      campaignsCount: campaigns.length,
-      charactersCount: characters.length,
-      memoriesCount: memories.length,
-      tokensCount: tokens.length,
-      mediaCount: mediaMetadata.length
-    });
+    // Reset pending changes to 0 and sync version history from backup
+    VersionControlService.syncFromImport(sequence, backup.versionHistory);
+
+    // Record last import info
+    if (filename) {
+      const info: LastImportInfo = {
+        sequence,
+        filename,
+        importedAt: new Date().toISOString(),
+        campaignsCount: campaigns.length,
+        charactersCount: characters.length,
+        memoriesCount: memories.length,
+        tokensCount: tokens.length,
+        mediaCount: mediaMetadata.length
+      };
+      localStorage.setItem(STORAGE_KEY_LAST_IMPORT, JSON.stringify(info));
+    }
 
     return { campaignIds, sequence };
   },
@@ -496,7 +666,8 @@ e selecione este arquivo .zip. Toda a sua história e imagens serão recuperadas
   /**
    * Extracts and restores a full campaign/system archive from a ZIP file.
    * Reads db.json, fetches media files, regenerates canvas thumbnails, and commits to IndexedDB.
-   * IMPORTANT REQUIREMENT: Overwrites ALL previously registered data in IndexedDB completely.
+   * Overwrites ALL previously registered data in IndexedDB completely.
+   * Resets pending changes to 0 and adopts imported version.
    */
   async importFullZipData(file: File, onProgress?: (progress: number) => void): Promise<{ campaignIds: string[]; sequence: number }> {
     const zip = await JSZip.loadAsync(file);
@@ -533,12 +704,11 @@ e selecione este arquivo .zip. Toda a sua história e imagens serão recuperadas
       const parsed = this.parseSequenceFromFilename(file.name);
       if (parsed) sequence = parsed;
     }
+    if (sequence === 0) sequence = 1;
 
     for (const camp of campaigns) {
       camp.lastImportedFrom = file.name;
-      if (sequence > 0) {
-        camp.version = sequence;
-      }
+      camp.version = sequence;
     }
 
     const campaignIds = campaigns.map(c => c.id);
@@ -551,28 +721,36 @@ e selecione este arquivo .zip. Toda a sua história e imagens serão recuperadas
       const meta = metadataList[i];
       const fileExt = meta.filename.split('.').pop() || 'bin';
       
-      // Look for media in zip: media/${id}.${ext} or fallback to media/${id}
-      let zipFile = zip.file(`media/${meta.id}.${fileExt}`);
+      // Busca flexível do arquivo de mídia dentro do pacote ZIP
+      let zipFile = zip.file(`media/${meta.id}.${fileExt}`)
+                 || zip.file(`media/${meta.id}`)
+                 || zip.file(`${meta.id}.${fileExt}`)
+                 || zip.file(`${meta.id}`);
+
       if (!zipFile) {
-        zipFile = zip.file(`media/${meta.id}`);
+        const matches = zip.file(new RegExp(`(^|/)${meta.id}(\\.[^/]+)?$`, 'i'));
+        if (matches && matches.length > 0) {
+          zipFile = matches[0];
+        }
       }
 
-      let blob = new Blob([], { type: meta.mimeType || 'application/octet-stream' });
+      const mime = meta.mimeType || 'image/png';
+      let blob = new Blob([], { type: mime });
       let thumbnailBlob = blob;
 
       if (zipFile) {
-        blob = await zipFile.async('blob');
+        const rawBlob = await zipFile.async('blob');
+        blob = new Blob([rawBlob], { type: mime });
+        thumbnailBlob = blob;
 
         // Re-generate thumbnail if it's an image
-        if (meta.mimeType?.startsWith('image/') && meta.mimeType !== 'image/svg+xml' && blob.size > 0) {
+        if (mime.startsWith('image/') && mime !== 'image/svg+xml' && blob.size > 0) {
           try {
-            const imgFile = new File([blob], meta.filename, { type: meta.mimeType });
+            const imgFile = new File([blob], meta.filename || 'imagem.png', { type: mime });
             thumbnailBlob = await generateThumbnail(imgFile);
           } catch {
             thumbnailBlob = blob;
           }
-        } else {
-          thumbnailBlob = blob;
         }
       }
 
@@ -591,13 +769,37 @@ e selecione este arquivo .zip. Toda a sua história e imagens serão recuperadas
       onProgress(80);
     }
 
-    // 4. OVERWRITE ALL: Wipe existing database state completely before inserting new data!
-    if (onProgress) onProgress(85);
-    await db.clearAll();
+    const validCharIds = new Set(characters.map((c: any) => c.id));
+    const validMemIds = new Set(memories.map((m: any) => m.id));
+    const validTokenIds = new Set(tokens.map((t: any) => t.id));
+    const validMediaIds = new Set(metadataList.map((m: any) => m.id));
 
-    // 5. Commit all new collections cleanly
-    if (onProgress) onProgress(90);
+    // 4. Smart Upsert & Declarative Reconciliation:
+    if (onProgress) onProgress(85);
     await db.transaction('rw', [db.campaigns, db.characters, db.memories, db.tokens, db.memoryCharacters, db.media], async () => {
+      // Reconciliação de exclusões para as campanhas importadas
+      for (const camp of campaigns) {
+        const localChars = await db.characters.where('campaignId').equals(camp.id).toArray();
+        for (const lc of localChars) {
+          if (!validCharIds.has(lc.id)) await db.characters.delete(lc.id);
+        }
+
+        const localMems = await db.memories.where('campaignId').equals(camp.id).toArray();
+        for (const lm of localMems) {
+          if (!validMemIds.has(lm.id)) await db.memories.delete(lm.id);
+        }
+
+        const localTokens = await db.tokens.where('campaignId').equals(camp.id).toArray();
+        for (const lt of localTokens) {
+          if (!validTokenIds.has(lt.id)) await db.tokens.delete(lt.id);
+        }
+
+        const localMedia = await db.media.where('campaignId').equals(camp.id).toArray();
+        for (const lmed of localMedia) {
+          if (!validMediaIds.has(lmed.id)) await db.media.delete(lmed.id);
+        }
+      }
+
       if (campaigns.length > 0) await db.campaigns.bulkPut(campaigns);
       if (characters.length > 0) await db.characters.bulkPut(characters);
       if (memories.length > 0) await db.memories.bulkPut(memories);
@@ -605,20 +807,34 @@ e selecione este arquivo .zip. Toda a sua história e imagens serão recuperadas
       if (memoryCharacters.length > 0) await db.memoryCharacters.bulkPut(memoryCharacters);
 
       for (const mediaRecord of preparedMediaRecords) {
+        if (mediaRecord.blob.size === 0) {
+          const existing = await db.media.get(mediaRecord.id);
+          if (existing && existing.blob && existing.blob.size > 0) {
+            mediaRecord.blob = existing.blob;
+            mediaRecord.thumbnail = existing.thumbnail || existing.blob;
+          }
+        }
         await db.media.put(mediaRecord);
       }
     });
 
     if (onProgress) onProgress(100);
 
-    // Sync sequence counter
-    this.syncExportSequence(sequence, file.name, {
+    // Reset pending changes to 0 and sync version history from backup
+    VersionControlService.syncFromImport(sequence, backupData.versionHistory);
+
+    // Record last import info
+    const info: LastImportInfo = {
+      sequence,
+      filename: file.name,
+      importedAt: new Date().toISOString(),
       campaignsCount: campaigns.length,
       charactersCount: characters.length,
       memoriesCount: memories.length,
       tokensCount: tokens.length,
       mediaCount: preparedMediaRecords.length
-    });
+    };
+    localStorage.setItem(STORAGE_KEY_LAST_IMPORT, JSON.stringify(info));
 
     return { campaignIds, sequence };
   }

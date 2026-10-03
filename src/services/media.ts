@@ -1,5 +1,6 @@
 import { db } from '../db';
 import type { Media } from '../types';
+import { MediaRepository } from '../repositories/MediaRepository';
 
 // Constants
 const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB
@@ -236,7 +237,7 @@ export const MediaService = {
       createdAt: new Date().toISOString()
     };
 
-    await db.media.put(mediaRecord);
+    await MediaRepository.save(mediaRecord);
     return mediaId;
   },
 
@@ -246,7 +247,7 @@ export const MediaService = {
    */
   async getMediaUrl(mediaId: string): Promise<string | null> {
     const record = await db.media.get(mediaId);
-    if (!record) return null;
+    if (!record || !record.blob || record.blob.size === 0) return null;
     return URL.createObjectURL(record.blob);
   },
 
@@ -258,13 +259,15 @@ export const MediaService = {
   async getThumbnailUrl(mediaId: string): Promise<string | null> {
     const record = await db.media.get(mediaId);
     if (!record) return null;
-    return URL.createObjectURL(record.thumbnail || record.blob);
+    const blobToUse = (record.thumbnail && record.thumbnail.size > 0) ? record.thumbnail : record.blob;
+    if (!blobToUse || blobToUse.size === 0) return null;
+    return URL.createObjectURL(blobToUse);
   },
 
   /**
    * Deletes a media file.
    */
   async deleteMedia(mediaId: string): Promise<void> {
-    await db.media.delete(mediaId);
+    await MediaRepository.delete(mediaId);
   }
 };

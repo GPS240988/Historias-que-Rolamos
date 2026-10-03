@@ -30,6 +30,11 @@ export class ChronicleDatabase extends Dexie {
     this.version(3).stores({
       sync_outbox: null
     });
+
+    // Version 4: Indexed relational keys for fast media lookups
+    this.version(4).stores({
+      media: 'id, campaignId, relatedCharacterId, relatedMemoryId'
+    });
   }
 
   /**

@@ -1,0 +1,16 @@
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ 1. Somente JSON (Levíssimo ~10 a 50 KB)                                                │
+│    • Para quando alterarem fichas, textos, memórias, anotações de sessão ou deleções. │
+│    • Trafega instantaneamente em qualquer mensageiro.                                 │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ 2. Atualização Incremental - Delta ZIP (Econômico ~ Tamanho apenas da foto nova)       │
+│    • Usa o log de alterações pendentes (`pendingChanges`).                            │
+│    • Empacota o `db.json` completo + APENAS os arquivos binários das fotos/tokens     │
+│      novos ou alterados nesta versão!                                                  │
+│    • Se o acervo tem 200 fotos e você adicionou 1 foto de 400KB, o ZIP terá ~400KB!    │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ 3. Manuscrito Completo - ZIP Integral (Acervo Total)                                   │
+│    • Empacota absolutamente todas as fotos do sistema.                                │
+│    • Ideal para backup de segurança mestre ou para um novo jogador que entrou na mesa  │
+│      e não possui nenhuma imagem ainda no computador.                                 │
+└────────────────────────────────────────────────────────────────────────────────────────┘

@@ -122,6 +122,35 @@ export interface Token {
   version?: number;
 }
 
+// Audit Log & Version Control types
+export type AuditAction = 'create' | 'update' | 'delete';
+export type AuditEntityType = 'campaign' | 'character' | 'memory' | 'token' | 'media' | 'relation' | 'system';
+
+export interface ChangeLogEntry {
+  id: string;
+  timestamp: string; // ISO 8601
+  action: AuditAction;
+  entityType: AuditEntityType;
+  entityId: string;
+  entityName: string;
+  description: string;
+  version?: number;
+}
+
+export interface VersionHistoryRecord {
+  version: number;
+  exportedAt: string;
+  summary: {
+    totalChanges: number;
+    campaignsCount: number;
+    charactersCount: number;
+    memoriesCount: number;
+    tokensCount: number;
+    mediaCount: number;
+  };
+  changes: ChangeLogEntry[];
+}
+
 // Full System / Campaign Backup structure (JSON part)
 export interface SystemBackupSummary {
   campaignsCount: number;
@@ -139,6 +168,7 @@ export interface SystemBackup {
   exportedAt: string; // ISO 8601 timestamp
   appName: string;
   summary: SystemBackupSummary;
+  versionHistory?: VersionHistoryRecord[];
   campaigns: Campaign[];
   characters: Character[];
   memories: Memory[];
@@ -154,6 +184,7 @@ export type CampaignBackup = SystemBackup | {
   exportedAt?: string;
   appName?: string;
   summary?: Partial<SystemBackupSummary>;
+  versionHistory?: VersionHistoryRecord[];
   campaigns: Campaign[];
   characters: Character[];
   memories: Memory[];
@@ -161,3 +192,4 @@ export type CampaignBackup = SystemBackup | {
   tokens: Token[];
   mediaMetadata: Omit<Media, 'blob' | 'thumbnail'>[];
 };
+

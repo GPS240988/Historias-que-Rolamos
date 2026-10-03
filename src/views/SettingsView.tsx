@@ -2,16 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { useCampaign } from '../contexts/CampaignContext';
 import { useConfirmation } from '../contexts/ConfirmationContext';
 import { BackupService, type LastImportInfo } from '../services/backup';
+import { VersionControlService, CHRONICLE_CHANGELOG_EVENT } from '../services/versionControl';
 import { OperationOverlay } from '../components/ui/OperationOverlay';
+import type { ChangeLogEntry, VersionHistoryRecord } from '../types';
 import {
   Upload,
   Trash2,
   Archive,
   HardDrive,
   ChevronRight,
+  ChevronDown,
   BookOpen,
   FileJson,
-  Layers
+  Layers,
+  ScrollText,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  PlusCircle,
+  Edit3
 } from 'lucide-react';
 
 export const SettingsView: React.FC = () => {
@@ -28,14 +37,33 @@ export const SettingsView: React.FC = () => {
   // Storage usage details
   const [storageUsage, setStorageUsage] = useState<{ used: string; total: string; percent: number } | null>(null);
 
-  // Versioning info
-  const [currentSequence, setCurrentSequence] = useState<number>(() => BackupService.getCurrentExportSequence());
+  // Versioning & Audit Log states
+  const [currentVersion, setCurrentVersion] = useState<number>(() => VersionControlService.getCurrentVersion());
+  const [pendingChanges, setPendingChanges] = useState<ChangeLogEntry[]>(() => VersionControlService.getPendingChanges());
+  const [versionHistory, setVersionHistory] = useState<VersionHistoryRecord[]>(() => VersionControlService.getVersionHistory());
   const [lastImport, setLastImport] = useState<LastImportInfo | null>(() => BackupService.getLastImportInfo());
+  
+  // Collapsible state for retracted audit log (retraído por padrão)
+  const [isLogExpanded, setIsLogExpanded] = useState<boolean>(false);
+  const [expandedVersionNum, setExpandedVersionNum] = useState<number | null>(null);
 
-  const refreshVersionInfo = () => {
-    setCurrentSequence(BackupService.getCurrentExportSequence());
+  const refreshAllVersionData = () => {
+    setCurrentVersion(VersionControlService.getCurrentVersion());
+    setPendingChanges(VersionControlService.getPendingChanges());
+    setVersionHistory(VersionControlService.getVersionHistory());
     setLastImport(BackupService.getLastImportInfo());
   };
+
+  useEffect(() => {
+    const handleChangelogUpdate = () => {
+      refreshAllVersionData();
+    };
+
+    window.addEventListener(CHRONICLE_CHANGELOG_EVENT, handleChangelogUpdate);
+    return () => {
+      window.removeEventListener(CHRONICLE_CHANGELOG_EVENT, handleChangelogUpdate);
+    };
+  }, []);
 
   useEffect(() => {
     if (navigator.storage && navigator.storage.estimate) {
@@ -48,18 +76,26 @@ export const SettingsView: React.FC = () => {
     }
   }, [operationResult]);
 
+  const nextVersionPreview = VersionControlService.peekNextExportVersion();
+  const hasChanges = pendingChanges.length > 0;
+
   const handleExportJSON = async () => {
     setLoading(true);
     setOperationResult(null);
     setProgress(50);
-    setStatusText('Varrendo todas as tabelas e gerando JSON versionado...');
+    setStatusText('Processando dados estruturados do sistema...');
     try {
       const result = await BackupService.exportFullSystemJSON();
-      refreshVersionInfo();
+      refreshAllVersionData();
       setProgress(100);
+
+      const msg = result.isNewVersion
+        ? `Nova versão gerada com sucesso! (v${result.sequence}) contendo ${pendingChanges.length || 1} alterações: ${result.filename}`
+        : `Exportado na versão atual (v${result.sequence}). Nenhuma nova alteração pendente: ${result.filename}`;
+
       setOperationResult({
         type: 'success',
-        message: `Backup de dados (v${result.sequence}) exportado com sucesso: ${result.filename}`,
+        message: msg,
       });
     } catch (err: any) {
       setOperationResult({ type: 'error', message: err.message || 'Erro ao exportar JSON.' });
@@ -83,13 +119,50 @@ export const SettingsView: React.FC = () => {
           setStatusText(`Agrupando arquivos binários e dados... (${p}%)`);
         }
       });
-      refreshVersionInfo();
+      refreshAllVersionData();
+
+      const msg = result.isNewVersion
+        ? `Nova versão gerada com sucesso! (v${result.sequence}) contendo todas as imagens e dados: ${result.filename}`
+        : `Manuscrito completo exportado na versão atual (v${result.sequence}) sem novas alterações: ${result.filename}`;
+
       setOperationResult({
         type: 'success',
-        message: `Manuscrito completo com todas as imagens (v${result.sequence}) exportado: ${result.filename}`,
+        message: msg,
       });
     } catch (err: any) {
       setOperationResult({ type: 'error', message: err.message || 'Erro ao exportar ZIP.' });
+    } finally {
+      setLoading(false);
+      setProgress(null);
+    }
+  };
+
+  const handleExportDeltaZIP = async () => {
+    setLoading(true);
+    setOperationResult(null);
+    setProgress(0);
+    setStatusText('Separando apenas mídias alteradas nesta versão...');
+    try {
+      const result = await BackupService.exportDeltaZipBackup((p) => {
+        setProgress(p);
+        if (p >= 85) {
+          setStatusText('Compactando pacote de atualização...');
+        } else {
+          setStatusText(`Compactando novas imagens... (${p}%)`);
+        }
+      });
+      refreshAllVersionData();
+
+      const msg = result.isNewVersion
+        ? `Pacote incremental gerado com sucesso! (v${result.sequence}) contendo apenas as novas mídias e dados: ${result.filename}`
+        : `Pacote incremental exportado na versão v${result.sequence} sem novas alterações: ${result.filename}`;
+
+      setOperationResult({
+        type: 'success',
+        message: msg,
+      });
+    } catch (err: any) {
+      setOperationResult({ type: 'error', message: err.message || 'Erro ao exportar pacote Delta.' });
     } finally {
       setLoading(false);
       setProgress(null);
@@ -108,13 +181,13 @@ export const SettingsView: React.FC = () => {
       return;
     }
 
-    // Explicit confirmation for full database overwrite
+    // Confirmation explaining smart preservation
     const confirmed = await confirm({
-      title: 'Sobrepor Informações do Grimório',
-      message: `ATENÇÃO: A importação irá SOBREPOR COMPLETAMENTE todas as informações cadastradas neste dispositivo.\n\nTodos os heróis, campanhas, memórias e fotos atuais serão substituídos pelo conteúdo do arquivo "${file.name}".\n\nDeseja continuar?`,
-      confirmLabel: 'Sobrepor e Restaurar',
+      title: 'Sincronizar Grimório com Backup',
+      message: `A importação irá sincronizar as informações a partir do arquivo "${file.name}".\n\n• Suas imagens locais existentes serão PRESERVADAS.\n• Fichas, memórias e tokens serão atualizados para a nova versão.\n• Itens excluídos nesta versão serão removidos do dispositivo.\n\nDeseja continuar?`,
+      confirmLabel: 'Sincronizar e Restaurar',
       cancelLabel: 'Cancelar',
-      isDestructive: true,
+      isDestructive: false,
     });
 
     if (!confirmed) {
@@ -143,11 +216,11 @@ export const SettingsView: React.FC = () => {
         });
       }
 
-      refreshVersionInfo();
+      refreshAllVersionData();
 
       setOperationResult({
         type: 'success',
-        message: `Grimório restaurado com sucesso! Versão importada: v${result.sequence || 1}.`,
+        message: `Grimório restaurado com sucesso! Versão importada: v${result.sequence}. Alterações pendentes zeradas.`,
       });
 
       if (result.campaignIds.length > 0) {
@@ -185,6 +258,14 @@ export const SettingsView: React.FC = () => {
     try {
       const { seedCampaignMemories } = await import('../db/seeder');
       await seedCampaignMemories(campaign.id);
+      VersionControlService.logChange(
+        'create',
+        'memory',
+        campaign.id,
+        'Coração de Rubi',
+        'Crônica oficial "Coração de Rubi" (20 partes) inserida na campanha'
+      );
+      refreshAllVersionData();
       setProgress(100);
       setOperationResult({
         type: 'success',
@@ -221,6 +302,7 @@ export const SettingsView: React.FC = () => {
     setOperationResult(null);
     try {
       await deleteCampaign(target.id);
+      refreshAllVersionData();
       setOperationResult({
         type: 'success',
         message: `Grimório "${target.name}" excluído com sucesso.`,
@@ -231,6 +313,50 @@ export const SettingsView: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const getActionBadge = (action: ChangeLogEntry['action']) => {
+    switch (action) {
+      case 'create':
+        return (
+          <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded text-[9px] font-sans font-semibold bg-emerald-950/40 text-emerald-400 border border-emerald-800/40">
+            <PlusCircle className="w-2.5 h-2.5" />
+            <span>Criado</span>
+          </span>
+        );
+      case 'update':
+        return (
+          <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded text-[9px] font-sans font-semibold bg-amber-950/40 text-amber-300 border border-amber-800/40">
+            <Edit3 className="w-2.5 h-2.5" />
+            <span>Alterado</span>
+          </span>
+        );
+      case 'delete':
+        return (
+          <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded text-[9px] font-sans font-semibold bg-rose-950/40 text-rose-300 border border-rose-800/40">
+            <Trash2 className="w-2.5 h-2.5" />
+            <span>Excluído</span>
+          </span>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const getEntityBadge = (entityType: ChangeLogEntry['entityType']) => {
+    const labels: Record<string, string> = {
+      campaign: 'Grimório',
+      character: 'Herói/Aliado',
+      memory: 'Memória',
+      token: 'Token',
+      media: 'Mídia',
+      system: 'Sistema'
+    };
+    return (
+      <span className="px-1.5 py-0.5 rounded text-[9px] font-sans font-medium bg-medieval-charcoal/60 text-medieval-gold/90 border border-medieval-gold/20 uppercase tracking-wider">
+        {labels[entityType] || entityType}
+      </span>
+    );
   };
 
   return (
@@ -253,22 +379,38 @@ export const SettingsView: React.FC = () => {
           <div className="flex items-center space-x-2">
             <Layers className="w-4 h-4 text-medieval-gold" />
             <span className="text-xs font-medieval font-bold uppercase tracking-wider text-medieval-brightGold">
-              Controle de Versionamento Local
+              Controle de Versão do Grimório
             </span>
           </div>
-          <span className="font-mono text-xs px-2 py-0.5 rounded bg-medieval-gold/20 text-medieval-brightGold border border-medieval-gold/40">
-            v{currentSequence}
-          </span>
+          <div className="flex items-center space-x-2">
+            <span className="font-mono text-xs px-2 py-0.5 rounded bg-medieval-gold/20 text-medieval-brightGold border border-medieval-gold/40">
+              Versão Atual: v{currentVersion}
+            </span>
+          </div>
         </div>
 
         <p className="text-xs text-medieval-silver leading-relaxed">
-          Cada exportação gera um arquivo com número sequencial incremental. Ao compartilhar ou importar entre jogadores, o arquivo com a maior versão contém as informações mais atualizadas.
+          {hasChanges ? (
+            <span className="text-amber-300/90 flex items-center gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>
+                Há <strong>{pendingChanges.length}</strong> alterações realizadas. A próxima exportação gerará a nova versão <strong>v{nextVersionPreview.version}</strong>.
+              </span>
+            </span>
+          ) : (
+            <span className="text-emerald-400/90 flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>
+                Nenhuma alteração pendente. A próxima exportação manterá a versão <strong>v{currentVersion}</strong> sem gerar versão nova.
+              </span>
+            </span>
+          )}
         </p>
 
         {lastImport && (
           <div className="text-[11px] bg-medieval-charcoal/60 p-2.5 rounded border border-medieval-gold/15 text-medieval-silver space-y-1">
             <div className="flex justify-between text-medieval-parchment">
-              <span>Última importação realizada:</span>
+              <span>Última importação neste dispositivo:</span>
               <strong className="text-medieval-brightGold font-mono">v{lastImport.sequence}</strong>
             </div>
             <div className="truncate font-mono text-[10px] text-medieval-gold/80" title={lastImport.filename}>
@@ -279,6 +421,163 @@ export const SettingsView: React.FC = () => {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Retracted / Collapsible Audit Log (Log Retraído com Todas as Alterações Detalhadas) */}
+      <div className="space-y-2">
+        <div className="grimoire-card overflow-hidden border-medieval-gold/25">
+          <button
+            type="button"
+            onClick={() => setIsLogExpanded(!isLogExpanded)}
+            className="w-full p-4 flex items-center justify-between hover:bg-medieval-stone/30 transition-all duration-300 text-left group cursor-pointer"
+            aria-expanded={isLogExpanded}
+          >
+            <div className="flex items-center space-x-3 min-w-0">
+              <div className="p-2 rounded bg-medieval-gold/10 text-medieval-gold flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+                <ScrollText className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center space-x-2">
+                  <strong className="text-sm font-medieval text-medieval-brightGold group-hover:text-medieval-gold truncate">
+                    Registro de Alterações do Grimório (Audit Log)
+                  </strong>
+                  {hasChanges ? (
+                    <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded font-sans font-bold flex-shrink-0">
+                      {pendingChanges.length} pendente{pendingChanges.length > 1 ? 's' : ''}
+                    </span>
+                  ) : (
+                    <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded font-sans flex-shrink-0">
+                      v{currentVersion} limpa
+                    </span>
+                  )}
+                </div>
+                <span className="text-xs text-medieval-silver block mt-0.5">
+                  {isLogExpanded ? 'Clique para recolher o histórico detalhado' : 'Clique para visualizar todas as alterações e histórico por versão'}
+                </span>
+              </div>
+            </div>
+            <div className="p-1 text-medieval-gold/60 group-hover:text-medieval-gold transition-colors duration-300">
+              <ChevronDown className={`w-5 h-5 transition-transform duration-300 ${isLogExpanded ? 'rotate-180' : ''}`} />
+            </div>
+          </button>
+
+          {/* Collapsible Content */}
+          {isLogExpanded && (
+            <div className="p-4 border-t border-medieval-gold/15 space-y-6 bg-medieval-charcoal/30 animate-fade-in">
+              
+              {/* Section 1: Pending Changes for next version */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medieval font-bold uppercase tracking-wider text-medieval-gold flex items-center space-x-1.5">
+                    <Clock className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Alterações Pendentes (Próxima Versão: v{nextVersionPreview.version})</span>
+                  </span>
+                  <span className="text-[10px] text-medieval-silver font-mono">
+                    {pendingChanges.length} alteraç{pendingChanges.length === 1 ? 'ão' : 'ões'}
+                  </span>
+                </div>
+
+                {pendingChanges.length > 0 ? (
+                  <div className="divide-y divide-medieval-gold/10 border border-medieval-gold/15 rounded bg-medieval-charcoal/60 overflow-hidden">
+                    {pendingChanges.slice().reverse().map((entry) => (
+                      <div key={entry.id} className="p-3 text-xs flex items-start justify-between gap-3 hover:bg-medieval-stone/10 transition-colors duration-200">
+                        <div className="space-y-1 min-w-0">
+                          <div className="flex items-center space-x-2">
+                            {getActionBadge(entry.action)}
+                            {getEntityBadge(entry.entityType)}
+                            <span className="font-semibold text-medieval-parchment truncate">{entry.entityName}</span>
+                          </div>
+                          <p className="text-[11px] text-medieval-silver font-serif">{entry.description}</p>
+                        </div>
+                        <span className="text-[10px] font-mono text-medieval-silver/60 flex-shrink-0">
+                          {new Date(entry.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 text-center border border-dashed border-medieval-gold/15 rounded bg-medieval-charcoal/20">
+                    <p className="text-xs text-medieval-silver/80">
+                      Nenhuma alteração pendente. Se você exportar agora, a versão <strong>v{currentVersion}</strong> será mantida sem gerar nova versão.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Section 2: Consolidated History of Past Released Versions */}
+              <div className="space-y-3 pt-2 border-t border-medieval-gold/10">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medieval font-bold uppercase tracking-wider text-medieval-gold flex items-center space-x-1.5">
+                    <Layers className="w-3.5 h-3.5 text-medieval-brightGold" />
+                    <span>Histórico Consolidado de Versões</span>
+                  </span>
+                  <span className="text-[10px] text-medieval-silver font-mono">
+                    {versionHistory.length} versão{versionHistory.length === 1 ? '' : 'ões'}
+                  </span>
+                </div>
+
+                {versionHistory.length > 0 ? (
+                  <div className="space-y-2">
+                    {versionHistory.map((vRec) => {
+                      const isVerExpanded = expandedVersionNum === vRec.version;
+                      return (
+                        <div key={vRec.version} className="border border-medieval-gold/15 rounded bg-medieval-charcoal/40 overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => setExpandedVersionNum(isVerExpanded ? null : vRec.version)}
+                            className="w-full p-3 flex items-center justify-between hover:bg-medieval-stone/20 transition-colors duration-200 text-left"
+                          >
+                            <div className="flex items-center space-x-3">
+                              <span className="font-mono text-xs px-2 py-0.5 rounded bg-medieval-gold/15 text-medieval-brightGold border border-medieval-gold/30 font-bold">
+                                v{vRec.version}
+                              </span>
+                              <div>
+                                <span className="text-xs text-medieval-parchment font-medieval block">
+                                  {new Date(vRec.exportedAt).toLocaleDateString('pt-BR')} às {new Date(vRec.exportedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                                <span className="text-[10px] text-medieval-silver block">
+                                  {vRec.changes.length} alteraç{vRec.changes.length === 1 ? 'ão' : 'ões'} registradas
+                                </span>
+                              </div>
+                            </div>
+                            <ChevronDown className={`w-4 h-4 text-medieval-gold/50 transition-transform duration-200 ${isVerExpanded ? 'rotate-180' : ''}`} />
+                          </button>
+
+                          {isVerExpanded && (
+                            <div className="p-3 border-t border-medieval-gold/10 bg-medieval-charcoal/60 divide-y divide-medieval-gold/5">
+                              {vRec.changes.map((c) => (
+                                <div key={c.id} className="py-2 text-[11px] flex items-start justify-between gap-2">
+                                  <div className="space-y-0.5 min-w-0">
+                                    <div className="flex items-center space-x-1.5">
+                                      {getActionBadge(c.action)}
+                                      {getEntityBadge(c.entityType)}
+                                      <span className="font-medium text-medieval-parchment truncate">{c.entityName}</span>
+                                    </div>
+                                    <p className="text-[10px] text-medieval-silver/90 font-serif">{c.description}</p>
+                                  </div>
+                                  <span className="text-[9px] font-mono text-medieval-silver/50 flex-shrink-0">
+                                    {new Date(c.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="p-3 text-center border border-dashed border-medieval-gold/15 rounded bg-medieval-charcoal/20">
+                    <p className="text-xs text-medieval-silver">
+                      Nenhuma versão consolidada anteriormente. O histórico será formado conforme os backups forem gerados.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Gestão de Grimórios */}
@@ -329,6 +628,7 @@ export const SettingsView: React.FC = () => {
                     });
                     if (!confirmed) return;
                     await deleteCampaign(c.id);
+                    refreshAllVersionData();
                     setOperationResult({
                       type: 'success',
                       message: `Grimório "${c.name}" excluído com sucesso.`,
@@ -357,9 +657,15 @@ export const SettingsView: React.FC = () => {
 
       {/* Exportar & Backup Local */}
       <div className="space-y-4">
-        <span className="block text-[10px] text-medieval-gold uppercase font-medieval tracking-widest pl-1">
-          Exportar & Backup Local
-        </span>
+        <div className="flex items-center justify-between pl-1">
+          <span className="text-[10px] text-medieval-gold uppercase font-medieval tracking-widest">
+            Exportar & Backup Local
+          </span>
+          <span className="text-[10px] text-medieval-silver font-mono">
+            {hasChanges ? `Próxima exportação: v${nextVersionPreview.version}` : `Exportará como: v${currentVersion}`}
+          </span>
+        </div>
+
         <div className="grimoire-card divide-y divide-medieval-gold/10 overflow-hidden">
 
           {/* Option 1: Export JSON only */}
@@ -368,45 +674,89 @@ export const SettingsView: React.FC = () => {
             className="w-full p-4 flex items-center justify-between hover:bg-medieval-stone/30 transition-all duration-300 text-left group cursor-pointer"
             disabled={loading}
           >
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-4 min-w-0">
               <div className="p-2 rounded bg-medieval-gold/10 text-medieval-gold flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
                 <FileJson className="w-5 h-5" />
               </div>
-              <div>
-                <strong className="block text-sm font-medieval text-medieval-brightGold group-hover:text-medieval-gold">
+              <div className="min-w-0">
+                <strong className="block text-sm font-medieval text-medieval-brightGold group-hover:text-medieval-gold truncate">
                   Exportar Estrutura de Dados (Somente JSON)
                 </strong>
-                <span className="text-xs text-medieval-silver">
-                  Varre toda a base: campanhas, heróis, crônicas, comentários, fichas e relações. Leve e rápido para transferência textual.
+                <span className="text-xs text-medieval-silver block mt-0.5">
+                  {hasChanges
+                    ? `Gerará a nova versão v${nextVersionPreview.version} (contendo ${pendingChanges.length} alterações). Leve e textual.`
+                    : `Exportará na versão atual v${currentVersion} (sem alterações pendentes).`}
                 </span>
               </div>
             </div>
-            <ChevronRight className="w-4 h-4 text-medieval-gold/40 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-300 flex-shrink-0" />
+            <div className="flex items-center space-x-2 flex-shrink-0">
+              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-medieval-gold/15 text-medieval-brightGold border border-medieval-gold/30">
+                {hasChanges ? `-> v${nextVersionPreview.version}` : `v${currentVersion}`}
+              </span>
+              <ChevronRight className="w-4 h-4 text-medieval-gold/40 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-300" />
+            </div>
           </button>
 
-          {/* Option 2: Full ZIP with Images and Files */}
+          {/* Option 2: Incremental Delta ZIP (Only new/modified media + data) */}
+          <button
+            onClick={handleExportDeltaZIP}
+            className="w-full p-4 flex items-center justify-between hover:bg-medieval-stone/30 transition-all duration-300 text-left group cursor-pointer"
+            disabled={loading}
+          >
+            <div className="flex items-center space-x-4 min-w-0">
+              <div className="p-2 rounded bg-medieval-gold/10 text-medieval-gold flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+                <Archive className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <strong className="block text-sm font-medieval text-medieval-brightGold group-hover:text-medieval-gold flex items-center gap-2">
+                  <span>Exportar Atualização Incremental (Delta ZIP)</span>
+                  <span className="text-[9px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.2 rounded font-sans uppercase flex-shrink-0">
+                    Econômico
+                  </span>
+                </strong>
+                <span className="text-xs text-medieval-silver block mt-0.5">
+                  Empacota todos os dados e <strong>apenas as fotos/tokens novos ou modificados</strong> nesta versão. Não repete centenas de fotos antigas.
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2 flex-shrink-0">
+              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-medieval-gold/15 text-medieval-brightGold border border-medieval-gold/30">
+                {hasChanges ? `-> v${nextVersionPreview.version}` : `v${currentVersion}`}
+              </span>
+              <ChevronRight className="w-4 h-4 text-medieval-gold/40 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-300" />
+            </div>
+          </button>
+
+          {/* Option 3: Full ZIP with All Images and Files */}
           <button
             onClick={handleExportZIP}
             className="w-full p-4 flex items-center justify-between hover:bg-medieval-stone/30 transition-all duration-300 text-left group cursor-pointer"
             disabled={loading}
           >
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-4 min-w-0">
               <div className="p-2 rounded bg-medieval-gold/10 text-medieval-gold flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
                 <Archive className="w-5 h-5" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <strong className="block text-sm font-medieval text-medieval-brightGold group-hover:text-medieval-gold flex items-center gap-2">
-                  <span>Exportar Manuscrito Completo (JSON + Imagens + Arquivos ZIP)</span>
-                  <span className="text-[9px] bg-medieval-gold/20 text-medieval-brightGold border border-medieval-gold/30 px-1.5 py-0.2 rounded font-sans uppercase">
-                    Completo
+                  <span>Exportar Manuscrito Completo (ZIP Integral)</span>
+                  <span className="text-[9px] bg-medieval-gold/20 text-medieval-brightGold border border-medieval-gold/30 px-1.5 py-0.2 rounded font-sans uppercase flex-shrink-0">
+                    Acervo Total
                   </span>
                 </strong>
-                <span className="text-xs text-medieval-silver">
-                  Varre todo o sistema sem deixar nenhuma informação ou imagem de fora: dados completos + galeria de fotos originais, capas e tokens compactados.
+                <span className="text-xs text-medieval-silver block mt-0.5">
+                  {hasChanges
+                    ? `Gerará a nova versão v${nextVersionPreview.version} com absolutamente todas as imagens da base (backup integral para arquivamento).`
+                    : `Exportará o acervo total na versão v${currentVersion} com todas as imagens.`}
                 </span>
               </div>
             </div>
-            <ChevronRight className="w-4 h-4 text-medieval-gold/40 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-300 flex-shrink-0" />
+            <div className="flex items-center space-x-2 flex-shrink-0">
+              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-medieval-gold/15 text-medieval-brightGold border border-medieval-gold/30">
+                {hasChanges ? `-> v${nextVersionPreview.version}` : `v${currentVersion}`}
+              </span>
+              <ChevronRight className="w-4 h-4 text-medieval-gold/40 group-hover:text-medieval-gold group-hover:translate-x-0.5 transition-all duration-300" />
+            </div>
           </button>
 
         </div>
@@ -428,7 +778,7 @@ export const SettingsView: React.FC = () => {
                   Carregar e Restaurar Arquivo (.json ou .zip)
                 </strong>
                 <span className="text-xs text-medieval-silver">
-                  Sobrepõe todos os dados locais com as crônicas e fotos do backup selecionado.
+                  Sobrepõe todos os dados locais com as crônicas do arquivo e adota a versão do backup sem criar versão nova.
                 </span>
               </div>
             </div>
