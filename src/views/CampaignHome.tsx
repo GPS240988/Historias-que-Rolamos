@@ -6,6 +6,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { Shield, BookOpen, Clock, Users, Scroll, Edit2 } from 'lucide-react';
 import { EditCampaignModal } from '../components/campaign/EditCampaignModal';
+import { formatDisplayDate } from '../utils/date';
 
 export const CampaignHome: React.FC = () => {
   const { campaign } = useCampaign();
@@ -239,7 +240,7 @@ const FeaturedMemoryCard: React.FC<{ memory: any }> = ({ memory }) => {
             {memory.type}
           </span>
           <span className="text-[10px] font-serif text-medieval-silver/50">
-            {new Date(memory.eventDate).toLocaleDateString('pt-BR')}
+            {formatDisplayDate(memory.eventDate)}
           </span>
         </div>
         <h4 className="text-xl md:text-2xl font-medieval font-bold text-medieval-brightGold hover:text-medieval-gold transition-colors duration-300">

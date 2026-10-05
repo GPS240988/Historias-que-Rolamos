@@ -22,6 +22,7 @@ import {
   PlusCircle,
   Edit3
 } from 'lucide-react';
+import { formatDisplayDate } from '../utils/date';
 
 export const SettingsView: React.FC = () => {
   const { campaign, campaigns, switchCampaign, deleteCampaign, theme, setTheme } = useCampaign();
@@ -598,7 +599,7 @@ export const SettingsView: React.FC = () => {
                   )}
                 </div>
                 <span className="text-[11px] text-medieval-silver block mt-0.5">
-                  Sistema: {c.system} • Iniciada em: {new Date(c.startDate).toLocaleDateString('pt-BR')}
+                  Sistema: {c.system} • Iniciada em: {formatDisplayDate(c.startDate)}
                 </span>
                 {c.lastImportedFrom && (
                   <span className="text-[10px] text-medieval-gold/80 block mt-1 font-serif italic truncate max-w-[250px] sm:max-w-[350px]" title={c.lastImportedFrom}>

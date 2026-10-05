@@ -4,7 +4,7 @@ import { useMediaUrl } from '../../hooks/useMediaUrl';
 import { db } from '../../db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useRouter } from '../../contexts/RouterContext';
-import { X, Tag, Users, Film, Download, Trash2, Edit3 } from 'lucide-react';
+import { X, Tag, Users, Film, Download, Trash2, Edit3, Image as ImageIcon, FileText, ExternalLink } from 'lucide-react';
 
 interface ImageDetailModalProps {
   isOpen: boolean;
@@ -29,7 +29,7 @@ export const ImageDetailModal: React.FC<ImageDetailModalProps> = ({ isOpen, onCl
     , [image?.relatedMemoryId]);
 
   const handleDownload = () => {
-    if (!image?.blob) return;
+    if (!image?.blob || image.blob.size === 0) return;
     const url = URL.createObjectURL(image.blob);
     const a = document.createElement('a');
     a.href = url;
@@ -54,6 +54,9 @@ export const ImageDetailModal: React.FC<ImageDetailModalProps> = ({ isOpen, onCl
 
   if (!isOpen || !image) return null;
 
+  const hasBinary = !!image.blob && image.blob.size > 0;
+  const isPdf = image.mimeType === 'application/pdf' || image.filename.toLowerCase().endsWith('.pdf');
+
   return createPortal(
     <div className="fixed inset-0 z-50 bg-[#000000]/80 backdrop-blur-sm flex justify-center items-center p-4">
       <div className="w-full max-w-2xl bg-medieval-charcoal grimoire-card border-medieval-gold/30 p-5 md:p-6 relative animate-fade-in max-h-[90vh] flex flex-col">
@@ -61,7 +64,7 @@ export const ImageDetailModal: React.FC<ImageDetailModalProps> = ({ isOpen, onCl
         {/* Header */}
         <div className="flex items-center justify-between border-b border-medieval-gold/15 pb-2 shrink-0">
           <h3 className="text-xl font-medieval text-medieval-gold uppercase tracking-wider truncate max-w-[80%]">
-            {image.title || 'Visual da Campanha'}
+            {image.title || (isPdf ? 'Documento Anexo' : 'Visual da Campanha')}
           </h3>
           <button
             onClick={onClose}
@@ -73,14 +76,59 @@ export const ImageDetailModal: React.FC<ImageDetailModalProps> = ({ isOpen, onCl
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto pr-1 -mr-1 scrollbar-thin space-y-4 my-3 font-serif text-sm">
-          {/* Image Display */}
-          <div className="w-full h-64 sm:h-80 rounded overflow-hidden border border-medieval-gold/15 bg-medieval-charcoal/80 flex items-center justify-center">
-            {imageUrl ? (
+          {/* Media / Document Display */}
+          <div className="w-full h-64 sm:h-80 rounded overflow-hidden border border-medieval-gold/15 bg-medieval-charcoal/80 flex items-center justify-center p-4">
+            {isPdf ? (
+              hasBinary ? (
+                <div className="flex flex-col items-center justify-center text-center space-y-3 p-4">
+                  <div className="p-4 rounded-full bg-medieval-gold/10 border border-medieval-gold/30 text-medieval-gold shadow-md">
+                    <FileText className="w-12 h-12" />
+                  </div>
+                  <div>
+                    <h4 className="text-base font-medieval text-medieval-brightGold">{image.title || image.filename}</h4>
+                    <span className="text-xs text-medieval-silver block mt-0.5 font-mono">
+                      {(image.size / (1024 * 1024)).toFixed(2)} MB • Documento PDF
+                    </span>
+                  </div>
+                  {imageUrl && (
+                    <a
+                      href={imageUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-gold py-1.5 px-4 text-xs flex items-center space-x-1.5 mt-2"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Abrir / Visualizar PDF</span>
+                    </a>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-6 text-center space-y-2">
+                  <FileText className="w-12 h-12 text-medieval-gold/30" />
+                  <span className="text-medieval-silver font-serif text-xs">
+                    Arquivo físico do PDF não disponível neste dispositivo.
+                  </span>
+                  <span className="text-[10px] text-medieval-silver/50">
+                    Este documento foi referenciado em um backup delta sem o arquivo binário anexado.
+                  </span>
+                </div>
+              )
+            ) : imageUrl ? (
               <img
                 src={imageUrl}
                 alt={image.title || image.filename}
                 className="w-full h-full object-contain max-h-[400px]"
               />
+            ) : !hasBinary ? (
+              <div className="flex flex-col items-center justify-center p-6 text-center space-y-2">
+                <ImageIcon className="w-10 h-10 text-medieval-gold/30" />
+                <span className="text-medieval-silver font-serif text-xs">
+                  Arquivo físico da imagem não disponível neste dispositivo.
+                </span>
+                <span className="text-[10px] text-medieval-silver/50">
+                  Esta mídia foi referenciada em um backup delta sem o arquivo binário anexado.
+                </span>
+              </div>
             ) : (
               <span className="text-medieval-silver/50 font-serif text-xs">Carregando Imagem...</span>
             )}
@@ -176,7 +224,13 @@ export const ImageDetailModal: React.FC<ImageDetailModalProps> = ({ isOpen, onCl
           </div>
           <button
             onClick={handleDownload}
-            className="btn-gold py-1.5 px-4 text-xs flex items-center space-x-1.5"
+            disabled={!hasBinary}
+            className={`py-1.5 px-4 text-xs flex items-center space-x-1.5 ${
+              hasBinary
+                ? 'btn-gold'
+                : 'btn-stone opacity-50 cursor-not-allowed text-medieval-silver/40'
+            }`}
+            title={hasBinary ? 'Baixar arquivo original' : 'Arquivo binário indisponível neste backup'}
           >
             <Download className="w-3.5 h-3.5" />
             <span>Baixar Original</span>

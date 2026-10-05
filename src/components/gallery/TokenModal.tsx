@@ -6,8 +6,9 @@ import { MediaService } from '../../services/media';
 import { db } from '../../db';
 import { TokenRepository } from '../../repositories/TokenRepository';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { X, PenTool, Users, Shield, Image as ImageIcon } from 'lucide-react';
+import { X, PenTool, Users, Shield, Image as ImageIcon, Crop } from 'lucide-react';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { ImageCropModal } from '../ui/ImageCropModal';
 
 interface TokenModalProps {
   isOpen: boolean;
@@ -28,6 +29,8 @@ export const TokenModal: React.FC<TokenModalProps> = ({ isOpen, onClose, tokenTo
 
   const [file, setFile] = useState<File | undefined>(undefined);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+  const [rawImageToCrop, setRawImageToCrop] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -58,11 +61,16 @@ export const TokenModal: React.FC<TokenModalProps> = ({ isOpen, onClose, tokenTo
         setError('O arquivo excede o limite de tamanho de 15MB.');
         return;
       }
-      setFile(selectedFile);
-      const url = URL.createObjectURL(selectedFile);
-      setCoverPreview(url);
+      setRawImageToCrop(selectedFile);
+      setIsCropModalOpen(true);
       setError(null);
+      e.target.value = '';
     }
+  };
+
+  const handleCropComplete = (croppedFile: File, previewUrl: string) => {
+    setFile(croppedFile);
+    setCoverPreview(previewUrl);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -165,7 +173,7 @@ export const TokenModal: React.FC<TokenModalProps> = ({ isOpen, onClose, tokenTo
                 )}
               </div>
               {coverPreview && (
-                <div className="mt-3 flex justify-center">
+                <div className="mt-3 flex flex-col items-center space-y-2">
                   <div className="w-20 h-20 rounded-full border-2 border-medieval-gold p-0.5 bg-medieval-stone overflow-hidden">
                     <img
                       src={coverPreview}
@@ -173,6 +181,15 @@ export const TokenModal: React.FC<TokenModalProps> = ({ isOpen, onClose, tokenTo
                       className="w-full h-full object-cover rounded-full"
                     />
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsCropModalOpen(true)}
+                    className="btn-stone py-1 px-3 text-xs flex items-center space-x-1.5 text-medieval-silver hover:text-medieval-gold"
+                    title="Ajustar enquadramento do token"
+                  >
+                    <Crop className="w-3.5 h-3.5 text-medieval-gold" />
+                    <span>Ajustar Enquadramento</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -272,6 +289,17 @@ export const TokenModal: React.FC<TokenModalProps> = ({ isOpen, onClose, tokenTo
 
         </form>
       </div>
+
+      <ImageCropModal
+        isOpen={isCropModalOpen}
+        onClose={() => setIsCropModalOpen(false)}
+        imageFile={rawImageToCrop || file || null}
+        imageUrl={!rawImageToCrop && !file ? coverPreview : null}
+        title="Enquadrar Arte do Token"
+        defaultAspectRatio="1:1"
+        allowedAspectRatios={['1:1', 'free']}
+        onCropComplete={handleCropComplete}
+      />
     </div>,
     document.body
   );

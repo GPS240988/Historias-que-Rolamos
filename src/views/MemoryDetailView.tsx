@@ -7,6 +7,7 @@ import { useMediaUrl } from '../hooks/useMediaUrl';
 import { getCategoryColorClass } from './TimelineView';
 import type { Character, Media, MemoryComment } from '../types';
 import { MemoryModal } from '../components/memory/MemoryModal';
+import { formatDisplayDate } from '../utils/date';
 import {
   Calendar,
   Tag,
@@ -172,7 +173,7 @@ export const MemoryDetailView: React.FC<MemoryDetailViewProps> = ({ id }) => {
         <div className="relative z-10 w-full space-y-2 md:space-y-3">
           <div className="flex items-center space-x-2 text-medieval-silver/80 text-[11px] font-serif">
             <Calendar className="w-4 h-4 text-medieval-gold shrink-0" />
-            <span>Registrado em: {new Date(memory.eventDate).toLocaleDateString('pt-BR')}</span>
+            <span>Registrado em: {formatDisplayDate(memory.eventDate)}</span>
           </div>
           <h2 className="text-xl md:text-3xl lg:text-4xl font-bold font-medieval text-medieval-brightGold tracking-wider break-words whitespace-normal leading-tight drop-shadow-md select-text">{memory.title}</h2>
         </div>
@@ -307,7 +308,7 @@ export const MemoryDetailView: React.FC<MemoryDetailViewProps> = ({ id }) => {
                       <div key={cmt.id} className="relative pl-4 border-l-2 border-medieval-gold/20 hover:border-medieval-gold/50 transition-colors space-y-1 py-1 group" style={{ animationDelay: `${idx * 40}ms` }}>
                         <div className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-medieval-charcoal border border-medieval-gold/50" />
                         <div className="flex items-center flex-wrap gap-2">
-                          <span className="text-[9px] font-medieval text-medieval-gold bg-medieval-gold/10 border border-medieval-gold/20 px-1.5 py-0.5 rounded">{new Date(cmt.date + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
+                          <span className="text-[9px] font-medieval text-medieval-gold bg-medieval-gold/10 border border-medieval-gold/20 px-1.5 py-0.5 rounded">{formatDisplayDate(cmt.date)}</span>
                           {cmt.author && (<span className="text-[9px] font-medieval font-bold text-medieval-brightGold bg-medieval-gold/5 border border-medieval-gold/15 px-1.5 py-0.5 rounded">{cmt.author}</span>)}
                           <div className="flex items-center space-x-1 flex-shrink-0">
                             <button type="button" onClick={() => handleEditComment(cmt)} title="Editar comentário" className="p-0.5 rounded hover:bg-medieval-gold/20 text-medieval-gold hover:text-medieval-brightGold transition-colors"><Edit3 className="w-3 h-3" /></button>

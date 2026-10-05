@@ -19,6 +19,7 @@ import {
   X,
   Search
 } from 'lucide-react';
+import { formatDisplayDate } from '../utils/date';
 
 interface CharacterProfileViewProps {
   id: string;
@@ -333,7 +334,7 @@ export const CharacterProfileView: React.FC<CharacterProfileViewProps> = ({ id }
 
                       <div className="flex items-center flex-wrap gap-2">
                         <span className="text-[9px] font-medieval text-medieval-gold bg-medieval-gold/10 border border-medieval-gold/20 px-1.5 py-0.5 rounded">
-                          {new Date(evo.date + 'T00:00:00').toLocaleDateString('pt-BR')}
+                          {formatDisplayDate(evo.date)}
                         </span>
                         {evo.author && (
                           <span className="text-[9px] font-medieval font-bold text-medieval-brightGold bg-medieval-gold/5 border border-medieval-gold/15 px-1.5 py-0.5 rounded">
@@ -467,7 +468,7 @@ const TimelineStep: React.FC<TimelineStepProps> = ({ memory, levelReached }) => 
             )}
           </div>
           <span className="text-[9px] text-medieval-silver/50">
-            {new Date(memory.eventDate).toLocaleDateString('pt-BR')}
+            {formatDisplayDate(memory.eventDate)}
           </span>
         </div>
 

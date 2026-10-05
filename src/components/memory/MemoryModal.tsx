@@ -9,10 +9,12 @@ import { MemoryCharacterRepository } from '../../repositories/MemoryCharacterRep
 import { CharacterRepository } from '../../repositories/CharacterRepository';
 import { MediaRepository } from '../../repositories/MediaRepository';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { X, Calendar, Edit3, Tag, Users, Plus, Image as ImageIcon } from 'lucide-react';
+import { X, Calendar, Edit3, Tag, Users, Plus, Image as ImageIcon, Crop } from 'lucide-react';
 import { useMediaUrl } from '../../hooks/useMediaUrl';
 import { useConfirmation } from '../../contexts/ConfirmationContext';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { ImageCropModal } from '../ui/ImageCropModal';
+import { normalizeDateInput } from '../../utils/date';
 
 interface MemoryModalProps {
   isOpen: boolean;
@@ -54,6 +56,10 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, memor
 
   const [coverFile, setCoverFile] = useState<File | undefined>(undefined);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+
+  // States for interactive image crop
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+  const [rawImageToCrop, setRawImageToCrop] = useState<File | null>(null);
 
   // Additional photos states
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
@@ -130,6 +136,7 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, memor
         setSelectedChars(initialSelected);
         setCoverPreview(null);
         setCoverFile(undefined);
+        setRawImageToCrop(null);
         setExistingPhotos([]);
         setPhotoFiles([]);
         setPhotoPreviews([]);
@@ -146,11 +153,16 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, memor
         setError('O arquivo excede o limite de tamanho de 15MB.');
         return;
       }
-      setCoverFile(file);
-      const url = URL.createObjectURL(file);
-      setCoverPreview(url);
+      setRawImageToCrop(file);
+      setIsCropModalOpen(true);
       setError(null);
+      e.target.value = '';
     }
+  };
+
+  const handleCropComplete = (croppedFile: File, previewUrl: string) => {
+    setCoverFile(croppedFile);
+    setCoverPreview(previewUrl);
   };
 
   const handleCharSelectToggle = (charId: string) => {
@@ -275,7 +287,7 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, memor
         id: memoryId,
         campaignId: campaign!.id,
         title: title.trim(),
-        eventDate: new Date(eventDate).toISOString(),
+        eventDate: normalizeDateInput(eventDate),
         type: type as MemoryType,
         description: description.trim(),
         heroDescriptions,
@@ -543,12 +555,25 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, memor
             </div>
 
             {coverPreview && (
-              <div className="mt-2 w-full h-28 rounded border border-medieval-gold/30 overflow-hidden">
-                <img
-                  src={coverPreview}
-                  alt="Prévia da Ilustração"
-                  className="w-full h-full object-cover"
-                />
+              <div className="mt-2 space-y-2">
+                <div className="w-full h-36 rounded border border-medieval-gold/30 overflow-hidden bg-medieval-charcoal">
+                  <img
+                    src={coverPreview}
+                    alt="Prévia da Ilustração"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setIsCropModalOpen(true)}
+                    className="btn-stone py-1 px-3 text-xs flex items-center space-x-1.5 text-medieval-silver hover:text-medieval-gold"
+                    title="Ajustar enquadramento e corte da ilustração"
+                  >
+                    <Crop className="w-3.5 h-3.5 text-medieval-gold" />
+                    <span>Ajustar Enquadramento</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -644,6 +669,17 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, memor
 
         </form>
       </div>
+
+      <ImageCropModal
+        isOpen={isCropModalOpen}
+        onClose={() => setIsCropModalOpen(false)}
+        imageFile={rawImageToCrop || coverFile || null}
+        imageUrl={!rawImageToCrop && !coverFile ? coverPreview : null}
+        title="Enquadrar Ilustração da Memória"
+        defaultAspectRatio="16:9"
+        allowedAspectRatios={['16:9', '4:3', '1:1', 'free']}
+        onCropComplete={handleCropComplete}
+      />
     </div>,
     document.body
   );

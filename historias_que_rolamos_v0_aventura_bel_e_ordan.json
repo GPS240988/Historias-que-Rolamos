@@ -1,0 +1,559 @@
+{
+  "format": "historias-que-rolamos-backup",
+  "version": "2.0.0",
+  "exportSequence": 0,
+  "exportedAt": "2026-10-05T20:00:00.000Z",
+  "appName": "Histórias que Rolamos",
+  "summary": {
+    "campaignsCount": 1,
+    "charactersCount": 6,
+    "memoriesCount": 4,
+    "tokensCount": 6,
+    "memoryCharactersCount": 14,
+    "mediaCount": 0
+  },
+  "versionHistory": [
+    {
+      "version": 0,
+      "exportedAt": "2026-10-05T20:00:00.000Z",
+      "summary": {
+        "totalChanges": 17,
+        "campaignsCount": 1,
+        "charactersCount": 6,
+        "memoriesCount": 4,
+        "tokensCount": 6,
+        "mediaCount": 0
+      },
+      "changes": [
+        {
+          "id": "chg_init_camp",
+          "timestamp": "2026-10-05T20:00:00.000Z",
+          "action": "create",
+          "entityType": "campaign",
+          "entityId": "camp_bel_ordan_t20",
+          "entityName": "O Caos e a Balança: As Desventuras de Bel & Ordan",
+          "description": "Criação da campanha baseada na crônica de Belzarek e Ordan Allond",
+          "version": 0
+        }
+      ]
+    }
+  ],
+  "campaigns": [
+    {
+      "id": "camp_bel_ordan_t20",
+      "name": "O Caos e a Balança: As Desventuras de Bel & Ordan",
+      "system": "Tormenta20",
+      "description": "Crônica das atribuladas aventuras de Belzarek, O Insano (devoto de Nimb) e Ordan Allond (paladino de Khalmyr). Em meio a febres em vilarejos, buracos na estrada de Timbar, interrogatórios no par ou ímpar e tempestades de magia arcana em cemitérios assombrados, a improvável dupla segue em busca do paradeiro do jovem Damodar pelas terras de Arton.",
+      "startDate": "1420-04-10",
+      "createdAt": "2026-10-05T20:00:00.000Z",
+      "updatedAt": "2026-10-05T20:00:00.000Z",
+      "version": 0
+    }
+  ],
+  "characters": [
+    {
+      "id": "char_belzarek",
+      "campaignId": "camp_bel_ordan_t20",
+      "playerName": "Herói",
+      "name": "Belzarek, O Insano",
+      "characterType": "hero",
+      "race": "Humano",
+      "origin": "Devoto Fiel",
+      "class": "Arcanista (Bruxo Caótico)",
+      "level": 3,
+      "hp": 22,
+      "mp": 32,
+      "concept": "Arcanista pirotécnico devoto de Nimb que resolve interrogatórios no par ou ímpar e invoca tempestades mágicas descontroladas.",
+      "description": "Mantos esfarrapados de cores berrantes e assimétricas, adornados com dados entalhados em osso e bugigangas aleatórias. Belzarek tem um olhar elétrico e imprevisível. Serve a Nimb de corpo e alma, celebrando o puro acaso e a anarquia.",
+      "notes": "• Devoção: Nimb (Poderes Concedidos: Sorte dos Loucos, Poder Oculto)\n• Magias Notáveis: Flecha Infalível de Talude, Explosão de Chamas, Toque Chocante\n• Peculiaridades: Decide momentos cruciais no par ou ímpar; possui o bordão estridente 'EU AVISEI!' sempre que Ordan se acidenta; canalizou poder radiante de Khalmyr após ser reanimado no cemitério de Timbar.",
+      "createdAt": "2026-10-05T20:00:00.000Z",
+      "updatedAt": "2026-10-05T20:00:00.000Z",
+      "version": 0,
+      "evolutions": [
+        {
+          "id": "evo_bel_1",
+          "date": "1420-04-10",
+          "comment": "Partiu em missão com Ordan para resgatar a flor curativa no vilarejo febril. Mostrou seu estilo de combate com pirotecnia contra os bandidos.",
+          "author": "Mestre",
+          "memoryId": "mem_sessao_1"
+        },
+        {
+          "id": "evo_bel_2",
+          "date": "1420-04-18",
+          "comment": "Inovou no interrogatório pirata no porto de Timbar usando regras de par ou ímpar, quase botando tudo a perder mas obtendo as pistas.",
+          "author": "Mestre",
+          "memoryId": "mem_sessao_3"
+        },
+        {
+          "id": "evo_bel_3",
+          "date": "1420-04-19",
+          "comment": "Caiu em combate contra o gás de carniçal no cemitério de Timbar, foi milagrosamente tocado pela mão radiante de Khalmyr no peito e despertou furioso com tempestade de Flechas Infalíveis.",
+          "author": "Mestre",
+          "memoryId": "mem_sessao_4"
+        }
+      ]
+    },
+    {
+      "id": "char_ordan",
+      "campaignId": "camp_bel_ordan_t20",
+      "playerName": "Herói",
+      "name": "Ordan Allond",
+      "characterType": "hero",
+      "race": "Humano",
+      "origin": "Cavaleiro",
+      "class": "Paladino de Khalmyr",
+      "level": 3,
+      "hp": 38,
+      "mp": 14,
+      "concept": "Paladino solene da justiça e da ordem com a balança de Khalmyr no brasão, famoso por soltar piadas contra vilões e cair em buracos com o cavalo.",
+      "description": "Porta armadura pesada reluzente com o brasão sagrado da balança de Khalmyr gravado no peitoral. Apesar da postura imponente da ordem divina, é espirituoso, solta piadas em combate e tem péssima percepção em montaria quando distraído.",
+      "notes": "• Devoção: Khalmyr (Poderes Concedidos: Espada Justiceira, Coragem Total)\n• Fraquezas Pessoais: Falta de atenção na estrada (caiu num buraco com montaria em plena luz do dia); zero habilidade e paciência para preparar poções ou reconhecer essências de mana ('Esse ingrediente é ruim!'); suscetível a gases pestilentos de mortos-vivos.\n• Virtudes: Tenta a cortesia diplomática até com piratas ('Boa tarde, piratas, o que fazem com os irmãos?') e canalizou o milagre que salvou Belzarek.",
+      "createdAt": "2026-10-05T20:00:00.000Z",
+      "updatedAt": "2026-10-05T20:00:00.000Z",
+      "version": 0,
+      "evolutions": [
+        {
+          "id": "evo_ordan_1",
+          "date": "1420-04-10",
+          "comment": "Defendeu a mãe desesperada e fatiou os bandidos no vilarejo com a balança de Khalmyr em punho e piadas na ponta da língua.",
+          "author": "Mestre",
+          "memoryId": "mem_sessao_1"
+        },
+        {
+          "id": "evo_ordan_2",
+          "date": "1420-04-15",
+          "comment": "Apresentou um teste desastroso de Cavalgar: não olhou por onde ia e caiu de ponta-cabeça com o cavalo em uma vala na estrada de Timbar.",
+          "author": "Mestre",
+          "memoryId": "mem_sessao_2"
+        },
+        {
+          "id": "evo_ordan_3",
+          "date": "1420-04-19",
+          "comment": "Sobreviveu à explosão fétida de gás de carniçal no cemitério e testemunhou o milagre da mão luminosa de Khalmyr salvando seu companheiro Belzarek.",
+          "author": "Mestre",
+          "memoryId": "mem_sessao_4"
+        }
+      ]
+    },
+    {
+      "id": "char_dalen",
+      "campaignId": "camp_bel_ordan_t20",
+      "playerName": "Aliado / NPC",
+      "name": "Dalen",
+      "characterType": "ally",
+      "race": "Anã",
+      "origin": "Prisioneira",
+      "class": "Guerreira / Forjadora",
+      "level": 2,
+      "hp": 28,
+      "mp": 6,
+      "concept": "Anã resgatada das garras dos piratas e mortos-vivos em Timbar, atônita com as maluquices da dupla.",
+      "description": "Anã de têmpera firme, musculosa e com tranças ruivas adornadas com aros de ferro. Ficou em choque e orando aos deuses ('Onde é que fui me meter, meu bom Arsenal?!') ao ver o estilo tresloucado de combate de Belzarek e Ordan.",
+      "notes": "• Status: Resgatada e aliada da comitiva.\n• Motivação: Agradecida pelo resgate no cais e no cemitério de Timbar, une-se à dupla para auxiliar nas buscas pelas estradas de Arton.",
+      "createdAt": "2026-10-05T20:00:00.000Z",
+      "updatedAt": "2026-10-05T20:00:00.000Z",
+      "version": 0
+    },
+    {
+      "id": "char_radomar",
+      "campaignId": "camp_bel_ordan_t20",
+      "playerName": "Aliado / NPC",
+      "name": "Radomar",
+      "characterType": "ally",
+      "race": "Humano",
+      "origin": "Plebeu",
+      "class": "Cidadão",
+      "level": 1,
+      "hp": 10,
+      "mp": 0,
+      "concept": "Contratante exasperado que procura desesperadamente por Damodar antes do amanhecer.",
+      "description": "Homem aflito de meia-idade que chegou berrando sem parar aos ouvidos de Bel e Ordan sobre a desgraça ocorrida na Taverna do Azar.",
+      "notes": "• Papel: Contratante inicial da busca por Damodar.\n• Fala Marcante: 'Achem Damodar antes do sol raiar!'",
+      "createdAt": "2026-10-05T20:00:00.000Z",
+      "updatedAt": "2026-10-05T20:00:00.000Z",
+      "version": 0
+    },
+    {
+      "id": "char_damodar",
+      "campaignId": "camp_bel_ordan_t20",
+      "playerName": "Aliado / NPC",
+      "name": "Damodar",
+      "characterType": "ally",
+      "race": "Humano",
+      "origin": "Apostador Inexperiente",
+      "class": "Plebeu",
+      "level": 1,
+      "hp": 12,
+      "mp": 0,
+      "concept": "O rapaz desaparecido que perdeu tudo no jogo de taverna e foi raptado por piratas de Timbar.",
+      "description": "Jovem ingênuo e imprudente levado pela lábia do bucaneiro Ernest. Foi capturado como pagamento de dívida de jogo e levado rumo ao Porto de Timbar, estando agora disperso pelas estradas de Arton.",
+      "notes": "• Status: Desaparecido / Alvo de resgate principal da campanha.\n• Paradeiro: Perdido nas estradas de Arton após a confusão entre contrabandistas e piratas.",
+      "createdAt": "2026-10-05T20:00:00.000Z",
+      "updatedAt": "2026-10-05T20:00:00.000Z",
+      "version": 0
+    },
+    {
+      "id": "char_ernest",
+      "campaignId": "camp_bel_ordan_t20",
+      "playerName": "Aliado / NPC",
+      "name": "Ernest",
+      "characterType": "ally",
+      "race": "Humano",
+      "origin": "Marinheiro",
+      "class": "Bucaneiro Trapaceiro",
+      "level": 2,
+      "hp": 18,
+      "mp": 8,
+      "concept": "Bucaneiro pilantra e viciado em jogatina que aposta até as calças para se embebedar.",
+      "description": "Marinheiro maltrapilho com cheiro de rum barato e sorriso torto. Arrastou Damodar para o buraco financeiro na Taverna do Azar e ambos foram levados pelos corsários.",
+      "notes": "• Envolvimento: Responsável direto pela enrascada em que Damodar se meteu ao perder até as calças no jogo.",
+      "createdAt": "2026-10-05T20:00:00.000Z",
+      "updatedAt": "2026-10-05T20:00:00.000Z",
+      "version": 0
+    }
+  ],
+  "memories": [
+    {
+      "id": "mem_sessao_1",
+      "campaignId": "camp_bel_ordan_t20",
+      "title": "Sessão 1: A Febre no Vilarejo e o Aço contra os Bandidos",
+      "description": "Em um vilarejo rural castigado por uma súbita epidemia de febre, o desespero tomou conta de uma mãe desolada pela ausência do marido e pelo sofrimento dos enfermos. Sem recursos médicos locais, a salvação residia em uma flor curativa rara encontrada apenas nos rincões ermos da região.\n\nBelzarek, O Insano, arcanista devoto de Nimb, e Ordan Allond, paladino devoto de Khalmyr, responderam ao apelo e se lançaram pela mata. No caminho, emboscaram um bando de salteadores armados que pretendiam extorquir a comunidade. Sob o estalo impiedoso do aço, Ordan empunhou a justiça divina com bravura e tiradas sarcásticas contra os vilões, enquanto Belzarek semeou pura anarquia e magias caóticas.\n\nCom a derrota dos bandidos e a flor colhida, o vilarejo foi salvo, consagrando a mais improvável das duplas de Arton: onde o caos de Nimb e a ordem de Khalmyr se encontram, milagres sem explicação acontecem!",
+      "heroDescriptions": {
+        "char_belzarek": "Uma febrezinha dessas não é nada que um pouco de caos e uma boa flor silvestre não resolvam! Nimb jogou os dados e o número caiu na cara feia dos bandidos. Estalar o aço e ver eles correndo em círculos foi pura poesia cósmica. Salvar o vilarejo com estilo é a única regra!",
+        "char_ordan": "Pela balança de Khalmyr, nenhuma mãe ficaria desamparada sob nossos olhos. Foi um combate limpo, com piadas adequadas à falta de decoro daqueles malfeitores. Bel quase incendiou a vegetação inteira, mas a flor medicinal foi preservada e a ordem restabelecida."
+      },
+      "eventDate": "1420-04-10",
+      "type": "Vitória",
+      "characterIds": [
+        "char_belzarek",
+        "char_ordan"
+      ],
+      "tags": [
+        "Sessão 1",
+        "Tormenta20",
+        "Vilarejo",
+        "Flor Medicinal",
+        "Bandidos",
+        "Combate",
+        "Khalmyr",
+        "Nimb"
+      ],
+      "comments": [
+        {
+          "id": "comm_s1_1",
+          "date": "1420-04-10",
+          "comment": "O primeiro trabalho oficial da dupla. Nem os bandidos entenderam como um paladino e um servo do caos lutam lado a lado sem se degolarem.",
+          "author": "Mestre"
+        },
+        {
+          "id": "comm_s1_2",
+          "date": "1420-04-10",
+          "comment": "O milagre não é termos vencido, Ordan. O milagre é o seu cavalo ainda estar de pé!",
+          "author": "Belzarek, O Insano"
+        }
+      ],
+      "createdAt": "2026-10-05T20:00:00.000Z",
+      "updatedAt": "2026-10-05T20:00:00.000Z",
+      "version": 0
+    },
+    {
+      "id": "mem_sessao_2",
+      "campaignId": "camp_bel_ordan_t20",
+      "title": "Sessão 2: O Chamado de Radomar e o Tombo na Estrada de Timbar",
+      "description": "A calmaria durou pouco. Radomar chegou berrando sem parar aos quatro ventos, exigindo que a dupla encontrasse o jovem Damodar antes do amanhecer. Segundo o relato, Damodar havia se juntado a Ernest — um bucaneiro pilantra que apostava até as calças para se embebedar na infame Taverna do Azar. Ambos perderam tudo nos dados e foram arrastados como pagamento forçado por piratas rumo ao Porto de Timbar.\n\nMontando seus cavalos, Belzarek e Ordan galoparam às pressas pela estrada... mas a navegação foi uma calamidade sem precedentes! Erraram todas as bifurcações, deram voltas em círculos e chegaram semi-mortos de tanta exaustão e desorientação.\n\nPara coroar a trapalhada em plena luz do dia, Ordan Allond, completamente distraído e admirando a paisagem em vez de olhar por onde a montaria pisava, despencou com cavalo, armadura e bagagem dentro de uma imensa vala na beira da estrada! Em meio à poeira e aos relinchos, Belzarek só teve fôlego para esbravejar o lendário grito: 'EU AVISEI!'",
+      "heroDescriptions": {
+        "char_belzarek": "Eu avisei! Eu olhei nos olhos do paladino e disse: 'Ordan, olha pra frente!'. Mas não, o sujeito prefere orar pras nuvens e cai com montaria e armadura de prato dentro de um buraco! Foi a coisa mais bonita que Nimb já proporcionou na estrada para Timbar!",
+        "char_ordan": "Em minha defesa perante Khalmyr e o tribunal das estradas: o animal se assustou com uma sombra injusta. Aquele buraco não estava no mapa e nem possuía a devida sinalização da guarda real. O que importa é que a armadura amorteceu o impacto!"
+      },
+      "eventDate": "1420-04-15",
+      "type": "Momento Engraçado",
+      "characterIds": [
+        "char_belzarek",
+        "char_ordan",
+        "char_radomar",
+        "char_damodar",
+        "char_ernest"
+      ],
+      "tags": [
+        "Sessão 2",
+        "Radomar",
+        "Damodar",
+        "Ernest",
+        "Taverna do Azar",
+        "Tombo do Cavalo",
+        "Estrada",
+        "Eu Avisei"
+      ],
+      "comments": [
+        {
+          "id": "comm_s2_1",
+          "date": "1420-04-15",
+          "comment": "Falha crítica no teste de Cavalgar de Ordan: 1 natural no d20. Momento registrado para a eternidade.",
+          "author": "Mestre"
+        },
+        {
+          "id": "comm_s2_2",
+          "date": "1420-04-15",
+          "comment": "A balança da justiça pendeu 90 graus pro fundo do buraco.",
+          "author": "Belzarek, O Insano"
+        }
+      ],
+      "createdAt": "2026-10-05T20:00:00.000Z",
+      "updatedAt": "2026-10-05T20:00:00.000Z",
+      "version": 0
+    },
+    {
+      "id": "mem_sessao_3",
+      "campaignId": "camp_bel_ordan_t20",
+      "title": "Sessão 3: O Embate no Cais de Timbar e o Par ou Ímpar do Interrogatório",
+      "description": "Ao alcançarem o cais do Porto de Timbar, a dupla deparou-se com uma cena revoltante: marinheiros corsários mantinham anões agrilhoados em pesadas correntes de ferro negro.\n\nFiel ao seu código de cortesia cavalheiresca, Ordan aproximou-se dos marujos mais truculentos e indagou com a mais pura polidez: 'Boa tarde, piratas, o que fazem com os irmãos?'. A réplica dos corsários foi brutal e imediata: descer as mãos em socos e pontapés! O combate estourou no tablado de madeira, com espadas tilintando e magias rasgando os mastros até a rendição total da escória pirata.\n\nCom o capitão pirata capturado mas recusando-se a falar sobre o destino de Damodar, Belzarek assumiu o interrogatório de forma inusitada: sacou um desafio de 'par ou ímpar' apostando o destino do segredo! Por puro capricho do acaso, o arcanista quase arruinou a investigação, mas arrancou a confissão na marra.\n\nEnquanto isso, ao inspecionarem frascos e preparos de essências de mana confiscados dos contrabandistas, Ordan cruzou os braços sem mexer um dedo, limitando-se a resmungar com nojo: 'Esse ingrediente é ruim!'.",
+      "heroDescriptions": {
+        "char_belzarek": "Diplomacia é para os fracos; o negócio é par ou ímpar com a faca no pescoço! Nimb abençoou o ímpar e o pirata cantou feito passarinho. E enquanto eu fazia ciência arcana com as essências de mana, o lorde Ordan ficou fazendo biquinho por causa do cheiro!",
+        "char_ordan": "Minha saudação foi impecável e respeitosa, mas a selvageria daqueles homens exigiu a réplica da lâmina justiceira. Quanto àquelas poções... por Khalmyr, aquilo cheirava a vísceras de otyugh fermentadas! Um paladino tem padrões sanitários a zelar."
+      },
+      "eventDate": "1420-04-18",
+      "type": "Batalha",
+      "characterIds": [
+        "char_belzarek",
+        "char_ordan"
+      ],
+      "tags": [
+        "Sessão 3",
+        "Porto de Timbar",
+        "Piratas",
+        "Cais",
+        "Anões Agrilhoados",
+        "Interrogatório",
+        "Par ou Ímpar",
+        "Essência de Mana"
+      ],
+      "comments": [
+        {
+          "id": "comm_s3_1",
+          "date": "1420-04-18",
+          "comment": "Belzarek quase perde a pista crucial por teimar em jogar par ou ímpar com o prisioneiro. Só Nimb para salvar uma jogada dessas.",
+          "author": "Mestre"
+        }
+      ],
+      "createdAt": "2026-10-05T20:00:00.000Z",
+      "updatedAt": "2026-10-05T20:00:00.000Z",
+      "version": 0
+    },
+    {
+      "id": "mem_sessao_4",
+      "campaignId": "camp_bel_ordan_t20",
+      "title": "Sessão 4: O Pesadelo no Cemitério de Timbar e o Milagre da Balança",
+      "description": "A noite em Timbar não trouxe trégua. O antigo cemitério nas colinas portuárias ferveu em profanação nefasta: lápides racharam e carniçais sedentos irromperam das covas frias.\n\nNa linha de frente, uma bolsa fétida de gás cadavérico explodiu direto no elmo de Ordan Allond — provando que a justiça divina tem cheiro... e um fedor nauseante! No turbilhão do confronto, Belzarek foi atingido e tombou desfalecido ao solo, à beira da morte. O caos parecia ter encontrado seu trágico fim.\n\nFoi então que o inacreditável aconteceu: a mão luminosa e serena de Khalmyr materializou-se sobre o peito do arcanista devoto de Nimb, brilhando em pura luz celestial e reanimando seu espírito! Belzarek ergueu-se possesso, possuído pela fúria primordial da magia. Labaredas incandescentes brotaram de suas mãos calcinando a terra congelada, acompanhadas por uma saraivada impiedosa de Flechas Infalíveis de Talude que caíram como tempestade cósmica, despedaçando as abominações e forçando os mortos a rastejarem de pavor de volta às suas tumbas!\n\nNo epicentro da carnificina, os heróis libertaram a prisioneira anã Dalen, que observava a dupla atônita, rezando: 'Onde é que fui me meter, meu bom Arsenal?!'. Damodar não estava ali, prosseguindo perdido pelas perigosas estradas de Arton. E se tudo der errado na próxima jornada... basta fazer um teste de sorte!",
+      "heroDescriptions": {
+        "char_belzarek": "Eu vi as trevas... e de repente, a mão de Khalmyr no meu peito me deu um tranco que nem trovão de Nimb! Levantei com sangue nos olhos e fogo nos dedos! As Flechas Infalíveis choveram tão lindo que até os zumbis pediram arrego de volta pra cova!",
+        "char_ordan": "Aquele gás de carniçal quase me derrubou pelo olfato antes da espada. Mas ver a bênção de Khalmyr tocar o peito de Belzarek e acordá-lo como um avatar flamejante da justiça foi o momento mais sublime e ensurdecedor da minha vida de paladino!"
+      },
+      "eventDate": "1420-04-19",
+      "type": "Momento Lendário",
+      "characterIds": [
+        "char_belzarek",
+        "char_ordan",
+        "char_dalen",
+        "char_damodar"
+      ],
+      "tags": [
+        "Sessão 4",
+        "Cemitério de Timbar",
+        "Carniçais",
+        "Gás Fétido",
+        "Mão de Khalmyr",
+        "Milagre",
+        "Flecha Infalível",
+        "Fogo Mágico",
+        "Resgate de Dalen",
+        "Damodar Perdido",
+        "Teste de Sorte"
+      ],
+      "comments": [
+        {
+          "id": "comm_s4_1",
+          "date": "1420-04-19",
+          "comment": "Momento Lendário inesquecível: Khalmyr e Nimb operando em perfeita sincronia cósmica para salvar a pele desses dois desastrados.",
+          "author": "Mestre"
+        },
+        {
+          "id": "comm_s4_2",
+          "date": "1420-04-19",
+          "comment": "Eu sobrevivi ao cativeiro pirata só para ver um homem de lata tossindo gás podre e um lunático botando fogo na colina inteira. Arsenal tenha piedade!",
+          "author": "Dalen"
+        }
+      ],
+      "createdAt": "2026-10-05T20:00:00.000Z",
+      "updatedAt": "2026-10-05T20:00:00.000Z",
+      "version": 0
+    }
+  ],
+  "memoryCharacters": [
+    {
+      "id": "mc_s1_bel",
+      "memoryId": "mem_sessao_1",
+      "characterId": "char_belzarek",
+      "levelReached": 1,
+      "version": 0
+    },
+    {
+      "id": "mc_s1_ordan",
+      "memoryId": "mem_sessao_1",
+      "characterId": "char_ordan",
+      "levelReached": 1,
+      "version": 0
+    },
+    {
+      "id": "mc_s2_bel",
+      "memoryId": "mem_sessao_2",
+      "characterId": "char_belzarek",
+      "levelReached": 2,
+      "version": 0
+    },
+    {
+      "id": "mc_s2_ordan",
+      "memoryId": "mem_sessao_2",
+      "characterId": "char_ordan",
+      "levelReached": 2,
+      "version": 0
+    },
+    {
+      "id": "mc_s2_rado",
+      "memoryId": "mem_sessao_2",
+      "characterId": "char_radomar",
+      "levelReached": 1,
+      "version": 0
+    },
+    {
+      "id": "mc_s2_damo",
+      "memoryId": "mem_sessao_2",
+      "characterId": "char_damodar",
+      "levelReached": 1,
+      "version": 0
+    },
+    {
+      "id": "mc_s2_ernest",
+      "memoryId": "mem_sessao_2",
+      "characterId": "char_ernest",
+      "levelReached": 2,
+      "version": 0
+    },
+    {
+      "id": "mc_s3_bel",
+      "memoryId": "mem_sessao_3",
+      "characterId": "char_belzarek",
+      "levelReached": 2,
+      "version": 0
+    },
+    {
+      "id": "mc_s3_ordan",
+      "memoryId": "mem_sessao_3",
+      "characterId": "char_ordan",
+      "levelReached": 2,
+      "version": 0
+    },
+    {
+      "id": "mc_s4_bel",
+      "memoryId": "mem_sessao_4",
+      "characterId": "char_belzarek",
+      "levelReached": 3,
+      "version": 0
+    },
+    {
+      "id": "mc_s4_ordan",
+      "memoryId": "mem_sessao_4",
+      "characterId": "char_ordan",
+      "levelReached": 3,
+      "version": 0
+    },
+    {
+      "id": "mc_s4_dalen",
+      "memoryId": "mem_sessao_4",
+      "characterId": "char_dalen",
+      "levelReached": 2,
+      "version": 0
+    },
+    {
+      "id": "mc_s4_damo",
+      "memoryId": "mem_sessao_4",
+      "characterId": "char_damodar",
+      "levelReached": 1,
+      "version": 0
+    }
+  ],
+  "tokens": [
+    {
+      "id": "tok_belzarek",
+      "campaignId": "camp_bel_ordan_t20",
+      "name": "Belzarek, O Insano",
+      "mediaId": "",
+      "category": "Player Character",
+      "relatedCharacterId": "char_belzarek",
+      "notes": "Token do Herói Arcanista de Nimb",
+      "createdAt": "2026-10-05T20:00:00.000Z",
+      "updatedAt": "2026-10-05T20:00:00.000Z",
+      "version": 0
+    },
+    {
+      "id": "tok_ordan",
+      "campaignId": "camp_bel_ordan_t20",
+      "name": "Ordan Allond",
+      "mediaId": "",
+      "category": "Player Character",
+      "relatedCharacterId": "char_ordan",
+      "notes": "Token do Herói Paladino de Khalmyr",
+      "createdAt": "2026-10-05T20:00:00.000Z",
+      "updatedAt": "2026-10-05T20:00:00.000Z",
+      "version": 0
+    },
+    {
+      "id": "tok_dalen",
+      "campaignId": "camp_bel_ordan_t20",
+      "name": "Dalen",
+      "mediaId": "",
+      "category": "NPC",
+      "relatedCharacterId": "char_dalen",
+      "notes": "Token da Aliada Anã",
+      "createdAt": "2026-10-05T20:00:00.000Z",
+      "updatedAt": "2026-10-05T20:00:00.000Z",
+      "version": 0
+    },
+    {
+      "id": "tok_radomar",
+      "campaignId": "camp_bel_ordan_t20",
+      "name": "Radomar",
+      "mediaId": "",
+      "category": "NPC",
+      "relatedCharacterId": "char_radomar",
+      "notes": "Token do Contratante de Timbar",
+      "createdAt": "2026-10-05T20:00:00.000Z",
+      "updatedAt": "2026-10-05T20:00:00.000Z",
+      "version": 0
+    },
+    {
+      "id": "tok_damodar",
+      "campaignId": "camp_bel_ordan_t20",
+      "name": "Damodar",
+      "mediaId": "",
+      "category": "NPC",
+      "relatedCharacterId": "char_damodar",
+      "notes": "Token do Jovem Desaparecido",
+      "createdAt": "2026-10-05T20:00:00.000Z",
+      "updatedAt": "2026-10-05T20:00:00.000Z",
+      "version": 0
+    },
+    {
+      "id": "tok_ernest",
+      "campaignId": "camp_bel_ordan_t20",
+      "name": "Ernest",
+      "mediaId": "",
+      "category": "NPC",
+      "relatedCharacterId": "char_ernest",
+      "notes": "Token do Bucaneiro Pilantra",
+      "createdAt": "2026-10-05T20:00:00.000Z",
+      "updatedAt": "2026-10-05T20:00:00.000Z",
+      "version": 0
+    }
+  ],
+  "mediaMetadata": []
+}

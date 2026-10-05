@@ -1,20 +1,11 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import type { Token } from '../../types';
 import { useMediaUrl } from '../../hooks/useMediaUrl';
 import { db } from '../../db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useRouter } from '../../contexts/RouterContext';
-import { X, Users, Download, Trash2, Edit3 } from 'lucide-react';
-
-interface TokenDetailModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  token: Token | null;
-  onEdit: () => void;
-  onDelete: () => void;
-}
-
-import { createPortal } from 'react-dom';
+import { X, Users, Download, Trash2, Edit3, Shield, Image as ImageIcon } from 'lucide-react';
 
 interface TokenDetailModalProps {
   isOpen: boolean;
@@ -56,6 +47,8 @@ export const TokenDetailModal: React.FC<TokenDetailModalProps> = ({ isOpen, onCl
 
   if (!isOpen || !token) return null;
 
+  const hasBinary = !!mediaRecord?.blob && mediaRecord.blob.size > 0;
+
   return createPortal(
     <div className="fixed inset-0 z-50 bg-[#000000]/80 backdrop-blur-sm flex justify-center items-center p-4">
       <div className="w-full max-w-sm bg-medieval-charcoal grimoire-card border-medieval-gold/30 p-5 md:p-6 relative animate-fade-in max-h-[90vh] flex flex-col">
@@ -76,7 +69,7 @@ export const TokenDetailModal: React.FC<TokenDetailModalProps> = ({ isOpen, onCl
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto pr-1 -mr-1 scrollbar-thin space-y-4 my-3 font-serif text-sm">
           {/* Large Rounded Combat Token Display */}
-          <div className="flex justify-center p-2">
+          <div className="flex flex-col items-center justify-center p-2 space-y-2">
             <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full overflow-hidden border-2 border-medieval-gold/50 shadow-gold bg-medieval-stone/90 flex items-center justify-center p-1 bg-cover bg-center">
               {tokenUrl ? (
                 <img 
@@ -84,10 +77,20 @@ export const TokenDetailModal: React.FC<TokenDetailModalProps> = ({ isOpen, onCl
                   alt={token.name} 
                   className="w-full h-full object-cover rounded-full"
                 />
+              ) : !hasBinary ? (
+                <div className="w-full h-full rounded-full bg-medieval-charcoal flex flex-col items-center justify-center text-center p-2">
+                  <Shield className="w-8 h-8 text-medieval-gold/40 mb-1" />
+                  <span className="text-[10px] font-medieval text-medieval-gold/70 leading-none">{token.name.substring(0, 4)}</span>
+                </div>
               ) : (
                 <span className="text-medieval-silver/50 font-serif text-xs">Carregando...</span>
               )}
             </div>
+            {!hasBinary && (
+              <span className="text-[10px] text-medieval-silver/60 text-center font-serif italic">
+                Arte do token não anexada neste backup
+              </span>
+            )}
           </div>
 
           {/* Details & Notes */}
@@ -139,7 +142,13 @@ export const TokenDetailModal: React.FC<TokenDetailModalProps> = ({ isOpen, onCl
         <div className="flex flex-col space-y-3 pt-3 border-t border-medieval-gold/15 shrink-0">
           <button 
             onClick={handleDownload}
-            className="w-full btn-gold py-1.5 text-xs flex items-center justify-center space-x-1.5"
+            disabled={!hasBinary}
+            className={`w-full py-1.5 text-xs flex items-center justify-center space-x-1.5 ${
+              hasBinary 
+                ? 'btn-gold' 
+                : 'btn-stone opacity-50 cursor-not-allowed text-medieval-silver/40'
+            }`}
+            title={hasBinary ? 'Baixar arte do token' : 'Arte original indisponível neste backup'}
           >
             <Download className="w-3.5 h-3.5" />
             <span>Baixar Token Original</span>

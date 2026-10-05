@@ -23,6 +23,7 @@ import {
   MessageSquare
 } from 'lucide-react';
 import type { Memory } from '../types';
+import { formatDisplayDate } from '../utils/date';
 
 const MEMORY_TYPES = [
   "Batalha",
@@ -356,7 +357,7 @@ const MemoryCard: React.FC<MemoryCardProps> = ({ memory, onEdit, onDelete }) => 
           </span>
           <span className="text-[10px] font-serif text-medieval-silver/50 flex items-center space-x-1">
             <Calendar className="w-3 h-3 text-medieval-gold" />
-            <span>{new Date(memory.eventDate).toLocaleDateString('pt-BR')}</span>
+            <span>{formatDisplayDate(memory.eventDate)}</span>
           </span>
         </div>
 

@@ -77,12 +77,12 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ tab = 'images' }) => {
     campaign ? db.tokens.where('campaignId').equals(campaign.id).toArray() : []
     , [campaign?.id]) || [];
 
-  // Gallery images: only files explicitly marked as isGallery=true
-  const galleryImages = allMedia.filter(m => m.isGallery === true);
+  // Gallery images: only files explicitly marked as isGallery=true with valid physical content
+  const galleryImages = allMedia.filter(m => m.isGallery === true && m.blob && m.blob.size > 0);
 
-  // Files/Attachments: files marked as isGallery=false, excluding those used by tokens
+  // Files/Attachments: files marked as isGallery=false, excluding those used by tokens, with valid physical content
   const tokenMediaIds = new Set(allTokens.map(t => t.mediaId));
-  const attachedFiles = allMedia.filter(m => m.isGallery === false && !tokenMediaIds.has(m.id));
+  const attachedFiles = allMedia.filter(m => m.isGallery === false && !tokenMediaIds.has(m.id) && m.blob && m.blob.size > 0);
 
   const handleTabChange = (targetTab: 'images' | 'files' | 'tokens') => {
     navigate({ type: 'gallery', tab: targetTab });
@@ -442,8 +442,9 @@ const TokenCard: React.FC<{ token: Token; onClick: () => void }> = ({ token, onC
           {tokenUrl ? (
             <img src={tokenUrl} alt={token.name} className="w-full h-full object-cover rounded-full" loading="lazy" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-medieval-gold/25 font-medieval text-xs">
-              TOK
+            <div className="w-full h-full flex flex-col items-center justify-center text-medieval-gold/60 bg-medieval-charcoal font-medieval text-[10px]">
+              <Shield className="w-4 h-4 text-medieval-gold/40 mb-0.5" />
+              <span>{token.name.substring(0, 3).toUpperCase()}</span>
             </div>
           )}
         </div>

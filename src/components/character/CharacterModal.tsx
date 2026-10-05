@@ -6,9 +6,11 @@ import { MediaService } from '../../services/media';
 import { db } from '../../db';
 import { CharacterRepository } from '../../repositories/CharacterRepository';
 import { MediaRepository } from '../../repositories/MediaRepository';
-import { X, User, Image as ImageIcon, FileText, Download, Plus, MessageSquare, ScrollText, Trash2, BookOpen, Edit3 } from 'lucide-react';
+import { X, User, Image as ImageIcon, FileText, Download, Plus, MessageSquare, ScrollText, Trash2, BookOpen, Edit3, Crop } from 'lucide-react';
 import { useConfirmation } from '../../contexts/ConfirmationContext';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { ImageCropModal } from '../ui/ImageCropModal';
+import { formatDisplayDate } from '../../utils/date';
 
 interface CharacterModalProps {
   isOpen: boolean;
@@ -41,6 +43,10 @@ export const CharacterModal: React.FC<CharacterModalProps> = ({ isOpen, onClose,
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [sheetFile, setSheetFile] = useState<File | undefined>(undefined);
   const [sheetPreview, setSheetPreview] = useState<string | null>(null);
+
+  // States for interactive crop
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+  const [rawImageToCrop, setRawImageToCrop] = useState<File | null>(null);
 
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
@@ -119,6 +125,7 @@ export const CharacterModal: React.FC<CharacterModalProps> = ({ isOpen, onClose,
         setNotes('');
         setCoverPreview(null);
         setCoverFile(undefined);
+        setRawImageToCrop(null);
         setSheetPreview(null);
         setSheetFile(undefined);
         setExistingPhotos([]);
@@ -162,11 +169,16 @@ export const CharacterModal: React.FC<CharacterModalProps> = ({ isOpen, onClose,
         setError('O arquivo excede o limite de tamanho de 15MB.');
         return;
       }
-      setCoverFile(file);
-      const url = URL.createObjectURL(file);
-      setCoverPreview(url);
+      setRawImageToCrop(file);
+      setIsCropModalOpen(true);
       setError(null);
+      e.target.value = '';
     }
+  };
+
+  const handleCropComplete = (croppedFile: File, previewUrl: string) => {
+    setCoverFile(croppedFile);
+    setCoverPreview(previewUrl);
   };
 
   const handleSheetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -548,21 +560,32 @@ export const CharacterModal: React.FC<CharacterModalProps> = ({ isOpen, onClose,
                 <ImageIcon className="w-3.5 h-3.5" />
                 <span>Retrato / Avatar</span>
               </label>
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3">
                 <label className="btn-stone cursor-pointer py-1.5 px-3 text-xs flex items-center space-x-2">
                   <ImageIcon className="w-3.5 h-3.5" />
                   <span>Enviar Retrato</span>
                   <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" disabled={loading} />
                 </label>
                 {coverFile ? (
-                  <span className="text-xs text-medieval-silver truncate max-w-[220px]">{coverFile.name}</span>
+                  <span className="text-xs text-medieval-silver truncate max-w-[180px]">{coverFile.name}</span>
                 ) : coverPreview && !coverFile ? (
                   <span className="text-xs text-green-400 italic">Retrato carregado ✓</span>
                 ) : null}
               </div>
               {coverPreview && (
-                <div className="mt-2 w-24 h-24 rounded border border-medieval-gold/30 overflow-hidden">
-                  <img src={coverPreview} alt="Prévia do Retrato" className="w-full h-full object-cover" />
+                <div className="mt-2 flex items-center space-x-3">
+                  <div className="w-24 h-24 rounded border border-medieval-gold/30 overflow-hidden bg-medieval-charcoal shrink-0">
+                    <img src={coverPreview} alt="Prévia do Retrato" className="w-full h-full object-cover" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsCropModalOpen(true)}
+                    className="btn-stone py-1.5 px-3 text-xs flex items-center space-x-1.5 h-fit text-medieval-silver hover:text-medieval-gold"
+                    title="Ajustar enquadramento e corte do retrato"
+                  >
+                    <Crop className="w-3.5 h-3.5 text-medieval-gold" />
+                    <span>Ajustar Enquadramento</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -702,7 +725,7 @@ export const CharacterModal: React.FC<CharacterModalProps> = ({ isOpen, onClose,
                     <option value="">— Nenhuma —</option>
                     {memories.map(m => (
                       <option key={m.id} value={m.id}>
-                        {new Date(m.eventDate).toLocaleDateString('pt-BR')} · {m.title}
+                        {formatDisplayDate(m.eventDate)} · {m.title}
                       </option>
                     ))}
                   </select>
@@ -762,7 +785,7 @@ export const CharacterModal: React.FC<CharacterModalProps> = ({ isOpen, onClose,
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex items-center flex-wrap gap-2">
                               <span className="text-[9px] font-medieval text-medieval-gold bg-medieval-gold/10 border border-medieval-gold/20 px-1.5 py-0.5 rounded">
-                                {new Date(evo.date + 'T00:00:00').toLocaleDateString('pt-BR')}
+                                {formatDisplayDate(evo.date)}
                               </span>
                               {evo.author && (
                                 <span className="text-[9px] font-medieval font-bold text-medieval-brightGold bg-medieval-gold/5 border border-medieval-gold/15 px-1.5 py-0.5 rounded">
@@ -854,6 +877,17 @@ export const CharacterModal: React.FC<CharacterModalProps> = ({ isOpen, onClose,
           </div>
         )}
       </div>
+
+      <ImageCropModal
+        isOpen={isCropModalOpen}
+        onClose={() => setIsCropModalOpen(false)}
+        imageFile={rawImageToCrop || coverFile || null}
+        imageUrl={!rawImageToCrop && !coverFile ? coverPreview : null}
+        title="Enquadrar Retrato do Personagem"
+        defaultAspectRatio="1:1"
+        allowedAspectRatios={['1:1', '4:3', 'free']}
+        onCropComplete={handleCropComplete}
+      />
     </div>,
     document.body
   );

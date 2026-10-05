@@ -604,7 +604,9 @@ e selecione este arquivo .zip. Toda a sua história e imagens serão recuperadas
 
         const localMedia = await db.media.where('campaignId').equals(camp.id).toArray();
         for (const lmed of localMedia) {
-          if (!validMediaIds.has(lmed.id)) await db.media.delete(lmed.id);
+          if (!validMediaIds.has(lmed.id) || !lmed.blob || lmed.blob.size === 0) {
+            await db.media.delete(lmed.id);
+          }
         }
       }
 
@@ -618,26 +620,14 @@ e selecione este arquivo .zip. Toda a sua história e imagens serão recuperadas
         for (const meta of mediaMetadata) {
           const existing = await db.media.get(meta.id);
           if (existing && existing.blob && existing.blob.size > 0) {
-            // Preserva o binário já existente intacto no banco local!
+            // Preserva o binário já existente intacto no banco local
             await db.media.put({
               ...meta,
               blob: existing.blob,
               thumbnail: existing.thumbnail || existing.blob
             });
-          } else if (existing) {
-            await db.media.put({
-              ...existing,
-              ...meta
-            });
-          } else {
-            // Nova referência de mídia sem arquivo físico prévio neste dispositivo
-            const fallbackMedia: Media = {
-              ...meta,
-              blob: new Blob([], { type: meta.mimeType || 'application/octet-stream' }),
-              thumbnail: new Blob([], { type: meta.mimeType || 'application/octet-stream' })
-            };
-            await db.media.put(fallbackMedia);
           }
+          // Caso contrário: se não há arquivo físico presente no dispositivo, NÃO criar registro vazio de 0 bytes
         }
       }
     });
@@ -796,7 +786,9 @@ e selecione este arquivo .zip. Toda a sua história e imagens serão recuperadas
 
         const localMedia = await db.media.where('campaignId').equals(camp.id).toArray();
         for (const lmed of localMedia) {
-          if (!validMediaIds.has(lmed.id)) await db.media.delete(lmed.id);
+          if (!validMediaIds.has(lmed.id) || !lmed.blob || lmed.blob.size === 0) {
+            await db.media.delete(lmed.id);
+          }
         }
       }
 
@@ -812,6 +804,10 @@ e selecione este arquivo .zip. Toda a sua história e imagens serão recuperadas
           if (existing && existing.blob && existing.blob.size > 0) {
             mediaRecord.blob = existing.blob;
             mediaRecord.thumbnail = existing.thumbnail || existing.blob;
+          } else {
+            // Mídia não veio no ZIP e não existia previamente no dispositivo.
+            // Ignora para não criar registros fantasmas de 0 bytes na galeria.
+            continue;
           }
         }
         await db.media.put(mediaRecord);

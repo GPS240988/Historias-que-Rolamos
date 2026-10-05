@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { useCampaign } from '../contexts/CampaignContext';
 import { useRouter } from '../contexts/RouterContext';
 import { BackupService } from '../services/backup';
-import { Shield, BookOpen, PenTool, Image as ImageIcon, Upload } from 'lucide-react';
+import { Shield, BookOpen, PenTool, Image as ImageIcon, Upload, Crop } from 'lucide-react';
 import { OperationOverlay } from '../components/ui/OperationOverlay';
+import { ImageCropModal } from '../components/ui/ImageCropModal';
 
 export const CampaignSetup: React.FC = () => {
   const { createCampaign, campaigns, switchCampaign } = useCampaign();
@@ -14,6 +15,8 @@ export const CampaignSetup: React.FC = () => {
   const [description, setDescription] = useState('');
   const [coverFile, setCoverFile] = useState<File | undefined>(undefined);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+  const [rawImageToCrop, setRawImageToCrop] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -29,11 +32,16 @@ export const CampaignSetup: React.FC = () => {
         setError('O arquivo excede o limite de tamanho de 15MB.');
         return;
       }
-      setCoverFile(file);
-      const url = URL.createObjectURL(file);
-      setCoverPreview(url);
+      setRawImageToCrop(file);
+      setIsCropModalOpen(true);
       setError(null);
+      e.target.value = '';
     }
+  };
+
+  const handleCropComplete = (croppedFile: File, previewUrl: string) => {
+    setCoverFile(croppedFile);
+    setCoverPreview(previewUrl);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -209,12 +217,25 @@ export const CampaignSetup: React.FC = () => {
             </div>
 
             {coverPreview && (
-              <div className="mt-3 relative w-full h-32 rounded overflow-hidden border border-medieval-gold/30">
-                <img
-                  src={coverPreview}
-                  alt="Pré-visualização da Capa"
-                  className="w-full h-full object-cover"
-                />
+              <div className="mt-3 space-y-2">
+                <div className="relative w-full aspect-[21/9] rounded overflow-hidden border border-medieval-gold/30 bg-medieval-charcoal">
+                  <img
+                    src={coverPreview}
+                    alt="Pré-visualização da Capa"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setIsCropModalOpen(true)}
+                    className="btn-stone py-1 px-3 text-xs flex items-center space-x-1.5 text-medieval-silver hover:text-medieval-gold"
+                    title="Ajustar enquadramento da capa"
+                  >
+                    <Crop className="w-3.5 h-3.5 text-medieval-gold" />
+                    <span>Ajustar Enquadramento</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -275,6 +296,17 @@ export const CampaignSetup: React.FC = () => {
         statusText={statusText}
         result={operationResult}
         onDismiss={() => setOperationResult(null)}
+      />
+
+      <ImageCropModal
+        isOpen={isCropModalOpen}
+        onClose={() => setIsCropModalOpen(false)}
+        imageFile={rawImageToCrop || coverFile || null}
+        imageUrl={!rawImageToCrop && !coverFile ? coverPreview : null}
+        title="Enquadrar Capa do Grimório"
+        defaultAspectRatio="21:9"
+        allowedAspectRatios={['21:9', '16:9', 'free']}
+        onCropComplete={handleCropComplete}
       />
     </div>
   );
