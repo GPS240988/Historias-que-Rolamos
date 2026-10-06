@@ -96,9 +96,19 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
     setIsDragging(false);
   };
 
-  // Mouse wheel for smooth zooming
+  // Prevent background scrolling while crop modal is active
+  useEffect(() => {
+    if (!isOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isOpen]);
+
+  // Mouse wheel for smooth zooming without scrolling parent document
   const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
+    e.stopPropagation();
     const delta = e.deltaY > 0 ? -0.1 : 0.1;
     setZoom(prev => Math.min(Math.max(0.5, Number((prev + delta).toFixed(2))), 4));
   };
@@ -147,7 +157,6 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
 
     try {
       const cropBox = getCropBoxDimensions();
-      const containerRect = container.getBoundingClientRect();
 
       // Output resolution target (high resolution up to 1920px max dimension)
       const targetRatio = cropBox.width / cropBox.height;

@@ -20,10 +20,14 @@ import {
   Filter,
   ArrowUpDown,
   BookOpen,
-  MessageSquare
+  MessageSquare,
+  Sparkles,
+  Layers
 } from 'lucide-react';
 import type { Memory } from '../types';
 import { formatDisplayDate } from '../utils/date';
+import { SpatialGrimoire3D } from '../components/memory/SpatialGrimoire3D';
+import { SacredTomeBook } from '../components/memory/SacredTomeBook';
 
 const MEMORY_TYPES = [
   "Batalha",
@@ -78,6 +82,7 @@ export const TimelineView: React.FC = () => {
   const [filterTag, setFilterTag] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [showFilters, setShowFilters] = useState(false);
+  const [viewMode, setViewMode] = useState<'tome' | 'grimoire' | 'list'>('tome');
 
   const allCharacters = useLiveQuery(() =>
     campaign ? db.characters.where('campaignId').equals(campaign.id).toArray() : []
@@ -184,11 +189,52 @@ export const TimelineView: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center space-x-2 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          {/* Alternador de Modo de Visualização */}
+          <div className="flex items-center bg-medieval-stone/70 border border-medieval-gold/20 rounded-lg p-0.5 shadow-inner">
+            <button
+              onClick={() => setViewMode('tome')}
+              className={`py-1.5 px-2.5 rounded text-xs flex items-center space-x-1.5 transition-all duration-300 font-medieval ${
+                viewMode === 'tome'
+                  ? 'bg-medieval-gold text-medieval-charcoal font-bold shadow-md'
+                  : 'text-medieval-silver hover:text-medieval-parchment'
+              }`}
+              title="O Tomo Sagrado (Compêndio em Folha Dupla / Flipbook)"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>O Tomo</span>
+            </button>
+            <button
+              onClick={() => setViewMode('grimoire')}
+              className={`py-1.5 px-2.5 rounded text-xs flex items-center space-x-1.5 transition-all duration-300 font-medieval ${
+                viewMode === 'grimoire'
+                  ? 'bg-medieval-gold text-medieval-charcoal font-bold shadow-md'
+                  : 'text-medieval-silver hover:text-medieval-parchment'
+              }`}
+              title="Visualização Espacial 3D em Grimório"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Grimório 3D</span>
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`py-1.5 px-2.5 rounded text-xs flex items-center space-x-1.5 transition-all duration-300 font-medieval ${
+                viewMode === 'list'
+                  ? 'bg-medieval-gold text-medieval-charcoal font-bold shadow-md'
+                  : 'text-medieval-silver hover:text-medieval-parchment'
+              }`}
+              title="Visualização em Lista de Memórias"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Lista</span>
+            </button>
+          </div>
+
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`btn-stone py-1.5 px-2.5 text-xs flex items-center space-x-1.5 transition-all duration-300 ${hasActiveFilters ? 'border-medieval-gold text-medieval-brightGold bg-medieval-gold/5' : ''
-              }`}
+            className={`btn-stone py-1.5 px-2.5 text-xs flex items-center space-x-1.5 transition-all duration-300 ${
+              hasActiveFilters ? 'border-medieval-gold text-medieval-brightGold bg-medieval-gold/5' : ''
+            }`}
           >
             <Filter className="w-3.5 h-3.5" />
             <span>Filtros</span>
@@ -294,6 +340,22 @@ export const TimelineView: React.FC = () => {
             </button>
           )}
         </div>
+      ) : viewMode === 'tome' ? (
+        <SacredTomeBook
+          memories={memories}
+          allCharacters={allCharacters}
+          sortOrder={sortOrder}
+          onEditMemory={handleEdit}
+          onDeleteMemory={handleDelete}
+        />
+      ) : viewMode === 'grimoire' ? (
+        <SpatialGrimoire3D
+          memories={memories}
+          allCharacters={allCharacters}
+          sortOrder={sortOrder}
+          onEditMemory={handleEdit}
+          onDeleteMemory={handleDelete}
+        />
       ) : (
         <div className="space-y-6 perspective-container">
           {memories.map((memory) => (

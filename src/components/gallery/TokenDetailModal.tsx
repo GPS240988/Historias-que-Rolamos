@@ -5,7 +5,7 @@ import { useMediaUrl } from '../../hooks/useMediaUrl';
 import { db } from '../../db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useRouter } from '../../contexts/RouterContext';
-import { X, Users, Download, Trash2, Edit3, Shield, Image as ImageIcon } from 'lucide-react';
+import { X, Users, Download, Trash2, Edit3, Shield } from 'lucide-react';
 
 interface TokenDetailModalProps {
   isOpen: boolean;
